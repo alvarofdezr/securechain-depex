@@ -29,7 +29,7 @@ cd securechain-depex
 ```
 
 ### 2. Configure environment variables
-Create a `.env` file from the `template.env` file and place it in the `app/` directory.
+Create a `.env` file from the `.env.template` file and place it in the `app/` directory.
 
 #### Get API Keys
 

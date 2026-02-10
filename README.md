@@ -1,5 +1,9 @@
 # Depex
 
+[![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Lint & Test](https://github.com/securechaindev/securechain-depex/actions/workflows/lint-test.yml/badge.svg)]()
+[![GHCR](https://img.shields.io/badge/GHCR-securechain--depex-blue?logo=docker)](https://github.com/orgs/securechaindev/packages/container/package/securechain-depex)
+
 ## What is Depex?
 
 Depex is a tool that allows you to reason over the entire configuration space of the Software Supply Chain of an open-source software repository.

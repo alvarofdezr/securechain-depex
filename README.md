@@ -69,7 +69,7 @@ Access Neo4j browser interface at [http://localhost:7474](http://localhost:7474/
 - **Redis:** Connect to `localhost:6379` to monitor cache
 
 ## Python Environment
-The project uses Python 3.14 and **uv** as the package manager for faster and more reliable dependency management.
+The project uses Python 3.14 and [uv](https://github.com/astral-sh/uv) as the package manager for faster and more reliable dependency management.
 
 ### Setting up the development environment with uv
 
@@ -91,8 +91,6 @@ The project uses Python 3.14 and **uv** as the package manager for faster and mo
 
 ## Testing
 
-The project uses pytest with coverage tracking. Current coverage: **84%** (407 tests passing).
-
 ```bash
 # Install test dependencies
 uv sync --extra test
@@ -112,8 +110,6 @@ uv run pytest tests/unit/ -v
 
 ## Code Quality
 
-The project uses **Ruff** for linting and formatting:
-
 ```bash
 # Install linter
 uv sync --extra dev
@@ -125,48 +121,13 @@ uv run ruff check app/
 uv run ruff format app/
 ```
 
-## Technology Stack
-
-- **Python 3.14+** - Programming language
-- **FastAPI** - Modern async web framework
-- **uv** - Fast Python package manager (Rust-based)
-- **MongoDB** - Document database for operations and metadata
-- **Neo4j** - Graph database for dependency relationships
-- **Redis** - In-memory cache for performance
-- **Z3 Solver** - SMT solver for constraint resolution
-- **Motor** - Async MongoDB driver
-- **Pydantic** - Data validation using Python type hints
-- **Pytest** - Testing framework with async support
-
 ## Contributing
 
-Pull requests are welcome! For major changes, please open an issue first to discuss what you would like to change.
-
-### How to Contribute
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes with tests
-4. Run tests: `uv run pytest --cov=app`
-5. Run linter: `uv run ruff check app/`
-6. Format code: `uv run ruff format app/`
-7. Commit your changes (`git commit -m 'Add amazing feature'`)
-8. Push to the branch (`git push origin feature/amazing-feature`)
-9. Open a Pull Request
-
-Please ensure:
-- All tests pass
-- Code coverage is maintained or improved
-- Code follows the project's style guide (Ruff)
-- Commit messages are clear and descriptive
+Pull requests are welcome! To contribute follow this [guidelines](https://securechaindev.github.io/contributing.html).
 
 ## License
 
 [GNU General Public License 3.0](https://www.gnu.org/licenses/gpl-3.0.html)
-
-This project is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-
-This project is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
 ## Links
 - [Secure Chain Team](mailto:hi@securechain.dev)

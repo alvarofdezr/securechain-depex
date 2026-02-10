@@ -72,7 +72,8 @@ Access Neo4j browser interface at [http://localhost:7474](http://localhost:7474/
 - **MongoDB Compass:** Connect to MongoDB at `mongodb://localhost:27017` to browse documents
 - **Redis:** Connect to `localhost:6379` to monitor cache
 
-## Python Environment
+## Development Environment
+
 The project uses Python 3.14 and [uv](https://github.com/astral-sh/uv) as the package manager for faster and more reliable dependency management.
 
 ### Setting up the development environment with uv

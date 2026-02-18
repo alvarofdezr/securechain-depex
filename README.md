@@ -1,4 +1,4 @@
-# Depex
+# Secure Chain Depex
 
 [![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Lint & Test](https://github.com/securechaindev/securechain-depex/actions/workflows/lint-test.yml/badge.svg)]()

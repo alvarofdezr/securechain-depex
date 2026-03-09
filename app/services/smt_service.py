@@ -6,14 +6,14 @@ from app.database import DatabaseManager
 
 class SMTService:
     def __init__(self, db: DatabaseManager):
-        self.smt_text_collection = db.get_smt_text_collection()
+        self.smts_collection = db.get_smts_collection()
 
-    async def replace_smt_text(self, smt_text_id: str, text: str) -> None:
-        await self.smt_text_collection.replace_one(
-            {"smt_text_id": smt_text_id},
-            {"smt_text_id": smt_text_id, "text": text, "moment": datetime.now()},
+    async def replace_smt(self, smt_id: str, text: str) -> None:
+        await self.smts_collection.replace_one(
+            {"smt_id": smt_id},
+            {"smt_id": smt_id, "text": text, "moment": datetime.now()},
             upsert=True,
         )
 
-    async def read_smt_text(self, smt_text_id: str) -> dict[str, Any]:
-        return await self.smt_text_collection.find_one({"smt_text_id": smt_text_id})
+    async def read_smt(self, smt_id: str) -> dict[str, Any] | None:
+        return await self.smts_collection.find_one({"smt_id": smt_id})

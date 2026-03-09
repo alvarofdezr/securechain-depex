@@ -4,45 +4,51 @@ from fastapi.responses import JSONResponse
 from app.apis import GitHubService
 from app.constants import ResponseCode, ResponseMessage
 from app.dependencies import (
+    get_dual_auth_bearer,
     get_github_service,
     get_json_encoder,
-    get_jwt_bearer,
     get_package_service,
     get_redis_queue,
     get_repository_service,
+    get_version_service,
 )
 from app.domain import RepositoryInitializer
-from app.exceptions import DateNotFoundException, InvalidRepositoryException
 from app.limiter import limiter
 from app.schemas import (
+    ExpandPackageRequest,
+    ExpandReqFileRequest,
+    ExpandVersionRequest,
     GetPackageStatusRequest,
-    GetRepositoriesRequest,
     GetVersionStatusRequest,
     InitPackageRequest,
     InitRepositoryRequest,
     PackageMessageSchema,
 )
-from app.services import PackageService, RepositoryService
+from app.services import (
+    PackageService,
+    RepositoryService,
+    VersionService,
+)
 from app.utils import JSONEncoder, RedisQueue
 
 router = APIRouter()
 
 @router.get(
-    "/graph/repositories/{user_id}",
+    "/graph/repositories",
     summary="Get User Repositories",
-    description="Retrieve a list of repositories for a specific user.",
+    description="Retrieve a list of repositories for the authenticated user.",
     response_description="List of user repositories.",
-    dependencies=[Depends(get_jwt_bearer())],
     tags=["Secure Chain Depex - Graph"]
 )
 @limiter.limit("25/minute")
 async def get_repositories(
     request: Request,
-    get_repositories_request: GetRepositoriesRequest = Depends(),
+    payload: dict = Depends(get_dual_auth_bearer()),
     repository_service: RepositoryService = Depends(get_repository_service),
     json_encoder: JSONEncoder = Depends(get_json_encoder),
 ) -> JSONResponse:
-    repositories = await repository_service.read_repositories_by_user_id(get_repositories_request.user_id)
+    user_id = payload.get("user_id", "")
+    repositories = await repository_service.read_repositories_by_user_id(user_id)
     return JSONResponse(status_code=status.HTTP_200_OK, content=json_encoder.encode({
         "code": ResponseCode.GET_REPOSITORIES_SUCCESS,
         "message": ResponseMessage.REPOSITORIES_RETRIEVED_SUCCESS,
@@ -55,6 +61,7 @@ async def get_repositories(
     summary="Get Package Status",
     description="Retrieve the status of a specific package.",
     response_description="Package status.",
+    dependencies=[Depends(get_dual_auth_bearer())],
     tags=["Secure Chain Depex - Graph"]
 )
 @limiter.limit("25/minute")
@@ -90,6 +97,7 @@ async def get_package_status(
     summary="Get Version Status",
     description="Retrieve the status of a specific version.",
     response_description="Version status.",
+    dependencies=[Depends(get_dual_auth_bearer())],
     tags=["Secure Chain Depex - Graph"]
 )
 @limiter.limit("25/minute")
@@ -129,7 +137,7 @@ async def get_version_status(
     summary="Initialize Package",
     description="Queue a package for extraction and analysis. The package will be processed asynchronously by Dagster.",
     response_description="Package queuing status.",
-    dependencies=[Depends(get_jwt_bearer())],
+    dependencies=[Depends(get_dual_auth_bearer())],
     tags=["Secure Chain Depex - Graph"]
 )
 @limiter.limit("25/minute")
@@ -139,35 +147,26 @@ async def init_package(
     redis_queue: RedisQueue = Depends(get_redis_queue),
     json_encoder: JSONEncoder = Depends(get_json_encoder),
 ) -> JSONResponse:
-    try:
-        message = PackageMessageSchema(
-            node_type=init_package_request.node_type.value,
-            package=init_package_request.package_name,
-            vendor=init_package_request.vendor,
-            repository_url=init_package_request.repository_url,
-            constraints=init_package_request.constraints,
-            parent_id=init_package_request.parent_id,
-            parent_version=init_package_request.parent_version,
-            refresh=init_package_request.refresh,
-        )
+    message = PackageMessageSchema(
+        node_type=init_package_request.node_type.value,
+        package=init_package_request.package_name,
+        vendor=init_package_request.vendor,
+        repository_url=init_package_request.repository_url,
+        constraints=init_package_request.constraints,
+        parent_id=init_package_request.parent_id,
+        parent_version=init_package_request.parent_version,
+        refresh=init_package_request.refresh,
+    )
 
-        redis_queue.add_package_message(message)
+    await redis_queue.add_package_message(message)
 
-        return JSONResponse(
-            status_code=status.HTTP_202_ACCEPTED,
-            content=json_encoder.encode({
-                "code": ResponseCode.PACKAGE_QUEUED_FOR_PROCESSING,
-                "message": ResponseMessage.PACKAGE_QUEUED,
-            }),
-        )
-    except Exception:
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content=json_encoder.encode({
-                "code": ResponseCode.ERROR_QUEUING_PACKAGE,
-                "message": ResponseMessage.ERROR_QUEUING_PACKAGE,
-            }),
-        )
+    return JSONResponse(
+        status_code=status.HTTP_202_ACCEPTED,
+        content=json_encoder.encode({
+            "code": ResponseCode.PACKAGE_QUEUED_FOR_PROCESSING,
+            "message": ResponseMessage.PACKAGE_QUEUED,
+        }),
+    )
 
 
 @router.post(
@@ -175,7 +174,6 @@ async def init_package(
     summary="Initialize Repository",
     description="Initialize a repository by creating it in the graph and queuing its packages for extraction.",
     response_description="Repository initialization status.",
-    dependencies=[Depends(get_jwt_bearer())],
     tags=["Secure Chain Depex - Graph"]
 )
 @limiter.limit("25/minute")
@@ -183,71 +181,165 @@ async def init_repository(
     request: Request,
     init_repository_request: InitRepositoryRequest,
     background_tasks: BackgroundTasks,
+    payload: dict = Depends(get_dual_auth_bearer()),
     repository_service: RepositoryService = Depends(get_repository_service),
     github_service: GitHubService = Depends(get_github_service),
     json_encoder: JSONEncoder = Depends(get_json_encoder),
 ) -> JSONResponse:
-    try:
-        last_commit_date = await github_service.get_last_commit_date(
+    user_id = payload.get("user_id", "")
+
+    last_commit_date = await github_service.get_last_commit_date(
+        init_repository_request.owner,
+        init_repository_request.name
+    )
+
+    repository = await repository_service.read_repository_by_owner_and_name(
+        init_repository_request.owner,
+        init_repository_request.name
+    )
+
+    if repository is None or repository["is_complete"]:
+        background_tasks.add_task(
+            RepositoryInitializer().init_repository,
             init_repository_request.owner,
-            init_repository_request.name
+            init_repository_request.name,
+            user_id,
+            repository,
+            last_commit_date,
         )
 
-        repository = await repository_service.read_repository_by_owner_and_name(
-            init_repository_request.owner,
-            init_repository_request.name
-        )
-
-        if repository is None or repository["is_complete"]:
-            background_tasks.add_task(
-                RepositoryInitializer().init_repository,
-                init_repository_request.owner,
-                init_repository_request.name,
-                init_repository_request.user_id,
-                repository,
-                last_commit_date,
-            )
-
-            return JSONResponse(
-                status_code=status.HTTP_202_ACCEPTED,
-                content=json_encoder.encode({
-                    "code": ResponseCode.REPOSITORY_QUEUED_FOR_PROCESSING,
-                    "message": ResponseMessage.REPOSITORY_QUEUED,
-                    "data": {
-                        "repository": f"{init_repository_request.owner}/{init_repository_request.name}"
-                    }
-                }),
-            )
-        else:
-            return JSONResponse(
-                status_code=status.HTTP_409_CONFLICT,
-                content=json_encoder.encode({
-                    "code": ResponseCode.REPOSITORY_PROCESSING_IN_PROGRESS,
-                    "message": ResponseMessage.REPOSITORY_PROCESSING,
-                    "data": {
-                        "repository_id": repository["id"]
-                    }
-                }),
-            )
-
-    except InvalidRepositoryException as err:
         return JSONResponse(
-            status_code=status.HTTP_404_NOT_FOUND,
-            content=json_encoder.encode(err.detail),
-        )
-
-    except DateNotFoundException as err:
-        return JSONResponse(
-            status_code=status.HTTP_404_NOT_FOUND,
-            content=json_encoder.encode(err.detail)
-        )
-
-    except Exception:
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=status.HTTP_202_ACCEPTED,
             content=json_encoder.encode({
-                "code": ResponseCode.ERROR_INITIALIZING_REPOSITORY,
-                "message": ResponseMessage.ERROR_INITIALIZING_REPOSITORY,
+                "code": ResponseCode.REPOSITORY_QUEUED_FOR_PROCESSING,
+                "message": ResponseMessage.REPOSITORY_QUEUED,
+                "data": {
+                    "repository": f"{init_repository_request.owner}/{init_repository_request.name}"
+                }
             }),
         )
+    else:
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content=json_encoder.encode({
+                "code": ResponseCode.REPOSITORY_PROCESSING_IN_PROGRESS,
+                "message": ResponseMessage.REPOSITORY_PROCESSING,
+                "data": {
+                    "repository_id": repository["id"]
+                }
+            }),
+        )
+
+@router.get(
+    "/graph/expand/req_file",
+    summary="Expand Requirement File",
+    description="Return requirement file info to expand its versions in the graph visualization.",
+    response_description="Requirement file expansion data.",
+    dependencies=[Depends(get_dual_auth_bearer())],
+    tags=["Secure Chain Depex - Graph"]
+)
+@limiter.limit("25/minute")
+async def expand_req_file(
+    request: Request,
+    expand_req_file_request: ExpandReqFileRequest = Depends(),
+    package_service: PackageService = Depends(get_package_service),
+    json_encoder: JSONEncoder = Depends(get_json_encoder),
+) -> JSONResponse:
+    expansion_data = await package_service.read_packages_expansion_by_req_file(
+        expand_req_file_request.requirement_file_id
+    )
+    if expansion_data is None:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content=json_encoder.encode(
+                {
+                    "code": ResponseCode.REQ_FILE_NOT_FOUND,
+                    "message": ResponseMessage.REQ_FILE_NOT_FOUND,
+                }
+            ),
+        )
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content=json_encoder.encode({
+            "code": ResponseCode.EXPAND_REQ_FILE_SUCCESS,
+            "message": ResponseMessage.REQ_FILE_EXPANSION_RETRIEVED_SUCCESS,
+            "data": expansion_data
+        })
+    )
+
+@router.get(
+    "/graph/expand/package",
+    summary="Expand Package",
+    description="Return package info to expand its versions in the graph visualization.",
+    response_description="Package expansion data.",
+    dependencies=[Depends(get_dual_auth_bearer())],
+    tags=["Secure Chain Depex - Graph"]
+)
+@limiter.limit("25/minute")
+async def expand_package(
+    request: Request,
+    expand_package_request: ExpandPackageRequest = Depends(),
+    version_service: VersionService = Depends(get_version_service),
+    json_encoder: JSONEncoder = Depends(get_json_encoder),
+) -> JSONResponse:
+    expansion_data = await version_service.read_versions_expansion_by_package(
+        expand_package_request.node_type.value,
+        expand_package_request.package_purl,
+        expand_package_request.constraints
+    )
+    if expansion_data is None:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content=json_encoder.encode(
+                {
+                    "code": ResponseCode.PACKAGE_NOT_FOUND,
+                    "message": ResponseMessage.PACKAGE_NOT_FOUND,
+                }
+            ),
+        )
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content=json_encoder.encode({
+            "code": ResponseCode.EXPAND_PACKAGE_SUCCESS,
+            "message": ResponseMessage.PACKAGE_EXPANSION_RETRIEVED_SUCCESS,
+            "data": expansion_data
+        })
+    )
+
+@router.get(
+    "/graph/expand/version",
+    summary="Expand Version",
+    description="Return version info to expand its dependencies in the graph visualization.",
+    response_description="Version expansion data.",
+    dependencies=[Depends(get_dual_auth_bearer())],
+    tags=["Secure Chain Depex - Graph"]
+)
+@limiter.limit("25/minute")
+async def expand_version(
+    request: Request,
+    expand_version_request: ExpandVersionRequest = Depends(),
+    package_service: PackageService = Depends(get_package_service),
+    json_encoder: JSONEncoder = Depends(get_json_encoder),
+) -> JSONResponse:
+    expansion_data = await package_service.read_packages_expansion_by_version(
+        expand_version_request.version_purl
+    )
+    if expansion_data is None:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content=json_encoder.encode(
+                {
+                    "code": ResponseCode.VERSION_NOT_FOUND,
+                    "message": ResponseMessage.VERSION_NOT_FOUND,
+                }
+            ),
+        )
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content=json_encoder.encode({
+            "code": ResponseCode.EXPAND_VERSION_SUCCESS,
+            "message": ResponseMessage.VERSION_EXPANSION_RETRIEVED_SUCCESS,
+            "data": expansion_data
+        })
+    )
 

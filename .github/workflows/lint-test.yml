@@ -9,10 +9,10 @@ jobs:
       - name: Checkout git repo
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.13
+      - name: Set up Python 3.14
         uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.14"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
@@ -26,4 +26,11 @@ jobs:
         run: uv run ruff check app
 
       - name: Run tests
+        env:
+          GRAPH_DB_URI: "bolt://localhost:7687"
+          GRAPH_DB_USER: "neo4j"
+          GRAPH_DB_PASSWORD: "test_password"
+          VULN_DB_URI: "mongodb://localhost:27017/test"
+          GITHUB_GRAPHQL_API_KEY: "test_github_api_key"
+          JWT_ACCESS_SECRET_KEY: "test_access_secret_key"
         run: uv run pytest -v

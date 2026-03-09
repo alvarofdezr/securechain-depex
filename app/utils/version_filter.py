@@ -1,7 +1,6 @@
 from typing import Any, ClassVar
 
 from univers.version_range import (
-    CargoVersionRange,
     GemVersionRange,
     MavenVersionRange,
     NpmVersionRange,
@@ -23,7 +22,7 @@ class VersionFilter:
     VERSION_RANGE_MAP: ClassVar[dict[str, tuple[type[Version], type[VersionRange]]]] = {
         "PyPIPackage": (PypiVersion, PypiVersionRange),
         "NPMPackage": (SemverVersion, NpmVersionRange),
-        "CargoPackage": (SemverVersion, CargoVersionRange),
+        "CargoPackage": (SemverVersion, NpmVersionRange),
         "MavenPackage": (MavenVersion, MavenVersionRange),
         "RubyGemsPackage": (RubygemsVersion, GemVersionRange),
         "NuGetPackage": (NugetVersion, NugetVersionRange),
@@ -31,7 +30,7 @@ class VersionFilter:
     }
 
     @staticmethod
-    def get_version_range_type(node_type: str) -> tuple[Version, VersionRange]:
+    def get_version_range_type(node_type: str) -> tuple[type[Version], type[VersionRange]]:
         return VersionFilter.VERSION_RANGE_MAP.get(node_type, (Version, VersionRange))
 
     @staticmethod
@@ -43,7 +42,7 @@ class VersionFilter:
         try:
             univers_range = version_range_type.from_native(constraints)
             for version in versions:
-                univers_version = version_type(version["name"])
+                univers_version = version_type(version.get("name")) # type: ignore[call-arg]
                 if univers_version in univers_range:
                     filtered_versions.append(version)
         except Exception as _:

@@ -6,8 +6,8 @@ from pytz import UTC
 
 from app.constants import ResponseCode, ResponseMessage
 from app.dependencies import (
+    get_dual_auth_bearer,
     get_json_encoder,
-    get_jwt_bearer,
     get_operation_service,
     get_package_service,
     get_requirement_file_service,
@@ -30,7 +30,7 @@ router = APIRouter()
     summary="Get Requirement File Information",
     description="Retrieve information about dependnecy graph of a specific requirement file.",
     response_description="Requirement File information.",
-    dependencies=[Depends(get_jwt_bearer())],
+    dependencies=[Depends(get_dual_auth_bearer())],
     tags=["Secure Chain Depex - Operation/SSC"]
 )
 @limiter.limit("5/minute")
@@ -44,8 +44,8 @@ async def requirement_file_info(
     operation_result_id = f"{file_info_request.node_type.value}:{file_info_request.requirement_file_id}:{file_info_request.max_depth}"
     operation_result = await operation_service.read_operation_result(operation_result_id)
     req_file_moment = await requirement_file_service.read_requirement_file_moment(file_info_request.requirement_file_id)
-    if operation_result is not None and operation_result["moment"].replace(tzinfo=UTC) > req_file_moment.replace(tzinfo=UTC):
-        result = operation_result["result"]
+    if req_file_moment and operation_result and operation_result["moment"].replace(tzinfo=UTC) > req_file_moment.replace(tzinfo=UTC):
+        result = operation_result.get("result")
     else:
         result = await requirement_file_service.read_graph_for_req_file_ssc_info_operation(
             file_info_request.node_type.value,
@@ -93,7 +93,7 @@ async def requirement_file_info(
     summary="Get Package SSC Information",
     description="Retrieve information about the software supply chain of a specific package.",
     response_description="SSC package information.",
-    dependencies=[Depends(get_jwt_bearer())],
+    dependencies=[Depends(get_dual_auth_bearer())],
     tags=["Secure Chain Depex - Operation/SSC"]
 )
 @limiter.limit("5/minute")
@@ -107,7 +107,7 @@ async def package_ssc_info(
     operation_result_id = f"{package_info_request.node_type.value}:{package_info_request.package_name}:{package_info_request.max_depth}"
     operation_result = await operation_service.read_operation_result(operation_result_id)
     if operation_result is not None:
-        result = operation_result["result"]
+        result = operation_result.get("result")
     else:
         result = await package_service.read_graph_for_package_ssc_info_operation(
             package_info_request.node_type.value,
@@ -155,7 +155,7 @@ async def package_ssc_info(
     summary="Get Package Version SSC Information",
     description="Retrieve information about the software supply chain of a specific package version.",
     response_description="SSC package version information.",
-    dependencies=[Depends(get_jwt_bearer())],
+    dependencies=[Depends(get_dual_auth_bearer())],
     tags=["Secure Chain Depex - Operation/SSC"]
 )
 @limiter.limit("5/minute")
@@ -169,7 +169,7 @@ async def version_ssc_info(
     operation_result_id = f"{version_info_request.node_type.value}:{version_info_request.package_name}:{version_info_request.version_name}:{version_info_request.max_depth}"
     operation_result = await operation_service.read_operation_result(operation_result_id)
     if operation_result is not None:
-        result = operation_result["result"]
+        result = operation_result.get("result")
     else:
         result = await version_service.read_graph_for_version_ssc_info_operation(
             version_info_request.node_type.value,

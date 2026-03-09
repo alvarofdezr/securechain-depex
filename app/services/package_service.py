@@ -22,34 +22,33 @@ class PackageService:
         return await result.single()
 
     async def read_package_status_by_name(self, node_type: str, package_name: str) -> dict[str, Any] | None:
+        # TODO: Add dynamic labels where Neo4j supports it with indexes
         query = f"""
         MATCH(p:{node_type}{{name:$package_name}})-[:HAVE]->(v:Version)
         WITH p, collect(v{{.*}}) AS versions
         RETURN p{{.*, versions: versions}} AS package
         """
         async with self.driver.session() as session:
-            result = await session.run(
-                query,
-                package_name=package_name
-            )
+            result = await session.run(query, package_name=package_name) # type: ignore
             record = await result.single()
         return record.get("package") if record else None
 
     async def read_version_status_by_package_and_name(self, node_type: str, package_name: str, version_name: str) -> dict[str, Any] | None:
+        # TODO: Add dynamic labels where Neo4j supports it with indexes
         query = f"""
         MATCH(p:{node_type}{{name:$package_name}})-[:HAVE]->(v:Version{{name:$version_name}})
         RETURN v{{id: elementid(v), .*}} AS version
         """
         async with self.driver.session() as session:
             result = await session.run(
-                query,
+                query, # type: ignore
                 package_name=package_name,
                 version_name=version_name
             )
             record = await result.single()
         return record.get("version") if record else None
 
-    async def read_packages_by_requirement_file(self, requirement_file_id: str) -> dict[str, str] | None:
+    async def read_packages_by_requirement_file(self, requirement_file_id: str) -> dict[str, str]:
         query = """
         MATCH (rf:RequirementFile) WHERE elementid(rf) = $requirement_file_id
         MATCH (rf)-[requirement_rel]->(package)
@@ -58,14 +57,88 @@ class PackageService:
         async with self.driver.session() as session:
             result = await session.run(query, requirement_file_id=requirement_file_id)
             record = await result.single()
-        return record.get("requirement_files") if record else None
+        return record.get("requirement_files") if record else {}
+
+    async def read_packages_expansion_by_version(
+        self,
+        version_purl: str,
+    ) -> dict[str, Any] | None:
+        query = """
+        MATCH (:Version{purl:$version_purl})-[r:REQUIRE]->(dep)
+        WITH r, collect(dep) AS dependencies
+        RETURN {
+            nodes: [dep IN dependencies | {
+                id: dep.purl,
+                label: dep.name,
+                type: labels(dep)[0],
+                props: {
+                    name: dep.name,
+                    vendor: dep.vendor,
+                    repository_url: dep.repository_url,
+                    purl: dep.purl
+                }
+            }],
+            edges: [dep IN dependencies | {
+                id: 'e-' + $version_purl + '-' + dep.purl,
+                source: $version_purl,
+                target: dep.purl,
+                type: 'REQUIRE',
+                props: {
+                    constraints: r.constraints,
+                    parent_version_name: r.parent_version_name
+                }
+            }]
+        } AS expansion_data
+        """
+        async with self.driver.session() as session:
+            result = await session.run(query, version_purl=version_purl)
+            record = await result.single()
+        return record.get("expansion_data") if record else None
+
+    async def read_packages_expansion_by_req_file(
+        self,
+        requirement_file_id: str,
+    ) -> dict[str, Any] | None:
+        query = """
+        MATCH (rf:RequirementFile)-[r:REQUIRE]->(dep)
+        WHERE elementid(rf) = $requirement_file_id
+        WITH collect({dep: dep, r: r}) AS items
+        RETURN {
+            nodes: [item IN items | {
+                id: item.dep.purl,
+                label: item.dep.name,
+                type: labels(item.dep)[0],
+                props: {
+                    name: item.dep.name,
+                    vendor: item.dep.vendor,
+                    repository_url: item.dep.repository_url,
+                    purl: item.dep.purl
+                }
+            }],
+            edges: [item IN items | {
+                id: 'e-' + $requirement_file_id + '-' + item.dep.purl,
+                source: $requirement_file_id,
+                target: item.dep.purl,
+                type: 'REQUIRE',
+                props: {
+                    constraints: item.r.constraints,
+                    parent_version_name: item.r.parent_version_name
+                }
+            }]
+        } AS expansion_data
+        """
+        async with self.driver.session() as session:
+            result = await session.run(query, requirement_file_id=requirement_file_id)
+            record = await result.single()
+        return record.get("expansion_data") if record else None
 
     async def read_graph_for_package_ssc_info_operation(
         self,
         node_type: str,
         package_name: str,
         max_depth: int
-    ) -> dict[str, Any] | None:
+    ) -> dict[str, Any]:
+        # TODO: Add dynamic labels where Neo4j supports it with indexes
         query = f"""
         MATCH (p:{node_type}{{name:$package_name}})
         CALL apoc.path.expandConfig(
@@ -137,7 +210,7 @@ class PackageService:
                     package_name,
                     max_depth
                 )
-                return record.get("ssc_package_info") if record else None
+                return record.get("ssc_package_info") if record else {}
         except Neo4jError as err:
             code = getattr(err, "code", "") or ""
             if (
@@ -146,19 +219,22 @@ class PackageService:
                 or code == "Neo.ClientError.Transaction.TransactionTimedOut"
             ):
                 raise MemoryOutException() from err
+        return {}
 
     async def exists_package(self, node_type: str, package_name: str) -> bool:
+        # TODO: Add dynamic labels where Neo4j supports it with indexes
         query = f"""
         RETURN EXISTS {{
             MATCH (p:{node_type}{{name: $package_name}})
         }} AS exists
         """
         async with self.driver.session() as session:
-            result = await session.run(query, package_name=package_name)
+            result = await session.run(query, package_name=package_name) # type: ignore
             record = await result.single()
         return record.get("exists") if record else False
 
     async def relate_packages(self, node_type: str, req_file_id: str, packages: list[dict[str, Any]]) -> None:
+        # TODO: Add dynamic labels where Neo4j supports it with indexes
         query = f"""
         MATCH (parent:RequirementFile)
         WHERE elementid(parent) = $req_file_id
@@ -167,4 +243,4 @@ class PackageService:
         CREATE (parent)-[:REQUIRE{{constraints: package.constraints, parent_version_name: package.parent_version_name}}]->(p)
         """
         async with self.driver.session() as session:
-            await session.run(query, req_file_id=req_file_id, packages=packages)
+            await session.run(query, req_file_id=req_file_id, packages=packages) # type: ignore

@@ -8,10 +8,21 @@ class FileTypes:
     NUGET: ClassVar[list[str]] = ["packages.config"]
     RUBY: ClassVar[list[str]] = ["Gemfile", "Gemfile.lock"]
     CARGO: ClassVar[list[str]] = ["Cargo.toml", "Cargo.lock"]
+    SBOM: ClassVar[list[str]] = ["bom.json", "bom.xml", "sbom.json", "sbom.xml", ".cyclonedx.json", ".cyclonedx.xml", ".cdx.json", ".cdx.xml", ".spdx.json", ".spdx.xml"]
 
     ALL_REQUIREMENT_FILES: ClassVar[set[str]] = set(
-        PYPI + NPM + MAVEN + NUGET + RUBY + CARGO
+        PYPI + NPM + MAVEN + NUGET + RUBY + CARGO + SBOM
     )
+
+class PurlTypeToManager:
+    MAPPING: ClassVar[dict[str, str]] = {
+        "pypi": "PyPI",
+        "npm": "NPM",
+        "maven": "Maven",
+        "nuget": "NuGet",
+        "cargo": "Cargo",
+        "gem": "RubyGems",
+    }
 
 class ResponseCode:
     # Health
@@ -36,8 +47,12 @@ class ResponseCode:
     NO_DEPENDENCIES_PACKAGE = "no_dependencies_package"
     NO_DEPENDENCIES_VERSION = "no_dependencies_version"
     REPOSITORY_PROCESSING_IN_PROGRESS = "repository_processing_in_progress"
+    EXPAND_REQ_FILE_SUCCESS = "expand_req_file_success"
+    EXPAND_PACKAGE_SUCCESS = "expand_package_success"
+    EXPAND_VERSION_SUCCESS = "expand_version_success"
 
     # Not found errors
+    REQ_FILE_NOT_FOUND = "req_file_not_found"
     PACKAGE_NOT_FOUND = "package_not_found"
     VERSION_NOT_FOUND = "version_not_found"
     DATE_NOT_FOUND = "date_not_found"
@@ -47,10 +62,6 @@ class ResponseCode:
     VALIDATION_ERROR = "validation_error"
     HTTP_ERROR = "http_error"
     INTERNAL_ERROR = "internal_error"
-
-    # Processing errors
-    ERROR_QUEUING_PACKAGE = "error_queuing_package"
-    ERROR_INITIALIZING_REPOSITORY = "error_initializing_repository"
 
     # Authentication errors
     NOT_AUTHENTICATED = "not_authenticated"
@@ -96,19 +107,19 @@ class ResponseMessage:
     NO_DEPENDENCIES_PACKAGE = "The package has no dependencies"
     NO_DEPENDENCIES_VERSION = "The package version has no dependencies"
     REPOSITORY_PROCESSING = "The repository is already being processed"
+    REQ_FILE_EXPANSION_RETRIEVED_SUCCESS = "Requirement file expansion data retrieved successfully"
+    PACKAGE_EXPANSION_RETRIEVED_SUCCESS = "Package expansion data retrieved successfully"
+    VERSION_EXPANSION_RETRIEVED_SUCCESS = "Version expansion data retrieved successfully"
 
     # Not found errors
+    REQ_FILE_NOT_FOUND = "The requested requirement file was not found"
     PACKAGE_NOT_FOUND = "The requested package was not found"
-    VERSION_NOT_FOUND = "The requested version was not found"
+    VERSION_NOT_FOUND = "The requested version was not found, or don't have dependencies"
 
     # Error messages - General
     VALIDATION_ERROR = "Validation error"
     HTTP_ERROR = "HTTP error"
     INTERNAL_ERROR = "Internal server error"
-
-    # Processing errors
-    ERROR_QUEUING_PACKAGE = "An error occurred while queuing the package for processing"
-    ERROR_INITIALIZING_REPOSITORY = "An error occurred while initializing the repository"
 
     # Exception messages (with dynamic content)
     DATE_NOT_FOUND = "Last commit date not found in repository {name} for owner {owner}"

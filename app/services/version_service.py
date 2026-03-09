@@ -5,6 +5,7 @@ from neo4j.exceptions import Neo4jError
 
 from app.database import DatabaseManager
 from app.exceptions import MemoryOutException
+from app.utils.version_filter import VersionFilter
 
 
 class VersionService:
@@ -26,30 +27,32 @@ class VersionService:
         self,
         node_type: str,
         config: dict[str, int]
-    ) -> dict[str, str | float | int]:
+    ) -> dict[str, str]:
+        # TODO: Add dynamic labels where Neo4j supports it with indexes
         query = f"""
         UNWIND $items AS item
         MATCH (v:Version)<-[:HAVE]-(parent:{node_type})
-        WHERE v.serial_number = item.serial_number AND parent.name = item.package
+        WHERE v.serial_number = item.serial_number AND parent.purl = item.package
         RETURN item.package AS package, v.name AS name
         """
         items = [{"package": pkg, "serial_number": sn} for pkg, sn in config.items()]
 
         async with self.driver.session() as session:
-            result = await session.run(query, items=items)
+            result = await session.run(query, items=items) # type: ignore
             records = await result.data()
 
         found = {record["package"]: record["name"] for record in records}
 
         sanitized_config = {pkg: found.get(pkg, sn) for pkg, sn in config.items()}
 
-        return sanitized_config
+        return sanitized_config if sanitized_config else {}
 
     async def read_serial_numbers_by_releases(
         self,
         node_type: str,
         config: dict[str, str]
     ) -> dict[str, int]:
+        # TODO: Add dynamic labels where Neo4j supports it with indexes
         query = f"""
         UNWIND $items AS item
         MATCH (v:Version)<-[:HAVE]-(parent:{node_type})
@@ -59,12 +62,63 @@ class VersionService:
         items = [{"package": pkg, "release": rel} for pkg, rel in config.items()]
 
         async with self.driver.session() as session:
-            result = await session.run(query, items=items)
+            result = await session.run(query, items=items) # type: ignore
             records = await result.data()
 
         sanitized_config = {record["package"]: record["serial_number"] for record in records}
 
         return sanitized_config
+
+    async def read_versions_expansion_by_package(
+        self,
+        node_type: str,
+        package_purl: str,
+        constraints: str | None = None
+    ) -> dict[str, Any] | None:
+        # TODO: Add dynamic labels where Neo4j supports it with indexes
+        query = f"""
+        MATCH (p:{node_type}{{purl:$package_purl}})-[:HAVE]->(v:Version)
+        RETURN collect({{
+            name: v.name,
+            release_date: v.release_date,
+            serial_number: v.serial_number,
+            vulnerabilities: v.vulnerabilities,
+            purl: v.purl
+        }}) AS versions
+        """
+        async with self.driver.session() as session:
+            result = await session.run(query, package_purl=package_purl) # type: ignore
+            record = await result.single()
+        if not record:
+            return None
+        versions = record.get("versions", [])
+        if constraints:
+            versions = VersionFilter.filter_versions(node_type, versions, constraints)
+        nodes = [
+            {
+                "id": v["purl"],
+                "label": v["name"],
+                "type": "Version",
+                "props": {
+                    "name": v["name"],
+                    "release_date": v["release_date"],
+                    "serial_number": v["serial_number"],
+                    "vulnerabilities": v["vulnerabilities"],
+                    "purl": v["purl"]
+                }
+            }
+            for v in versions
+        ]
+        edges = [
+            {
+                "id": f"e-{package_purl}-{v['purl']}",
+                "source": package_purl,
+                "target": v["purl"],
+                "type": "HAVE"
+            }
+            for v in versions
+        ]
+        return {"nodes": nodes, "edges": edges}
 
     async def read_graph_for_version_ssc_info_operation(
         self,
@@ -72,7 +126,8 @@ class VersionService:
         package_name: str,
         version_name: str,
         max_depth: int
-    ) -> dict[str, Any] | None:
+    ) -> dict[str, Any]:
+        # TODO: Add dynamic labels where Neo4j supports it with indexes
         query = f"""
         MATCH (:{node_type}{{name:$package_name}})-[:HAVE]->(v:Version{{name:$version_name}})
         CALL apoc.path.expandConfig(
@@ -145,7 +200,7 @@ class VersionService:
                     version_name,
                     max_depth
                 )
-                return record.get("ssc_version_info") if record else None
+                return record.get("ssc_version_info") if record else {}
         except Neo4jError as err:
             code = getattr(err, "code", "") or ""
             if (
@@ -154,3 +209,4 @@ class VersionService:
                 or code == "Neo.ClientError.Transaction.TransactionTimedOut"
             ):
                 raise MemoryOutException() from err
+        return {}

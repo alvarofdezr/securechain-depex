@@ -1,6 +1,8 @@
 from .graphs import (
+    ExpandPackageRequest,
+    ExpandReqFileRequest,
+    ExpandVersionRequest,
     GetPackageStatusRequest,
-    GetRepositoriesRequest,
     GetVersionStatusRequest,
     InitPackageRequest,
     InitRepositoryRequest,
@@ -23,10 +25,12 @@ from .operations import (
 __all__ = [
     "CompleteConfigRequest",
     "ConfigByImpactRequest",
+    "ExpandPackageRequest",
+    "ExpandReqFileRequest",
+    "ExpandVersionRequest",
     "FileInfoRequest",
     "FilterConfigsRequest",
     "GetPackageStatusRequest",
-    "GetRepositoriesRequest",
     "GetVersionStatusRequest",
     "InitPackageRequest",
     "InitRepositoryRequest",

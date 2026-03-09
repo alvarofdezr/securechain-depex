@@ -26,7 +26,7 @@ class VersionFilter:
         "MavenPackage": (MavenVersion, MavenVersionRange),
         "RubyGemsPackage": (RubygemsVersion, GemVersionRange),
         "NuGetPackage": (NugetVersion, NugetVersionRange),
-        "GoPackage": (SemverVersion, CargoVersionRange),
+        "GoPackage": (SemverVersion, NpmVersionRange),
     }
 
     @staticmethod

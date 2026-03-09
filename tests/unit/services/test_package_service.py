@@ -6,6 +6,7 @@ from neo4j.exceptions import Neo4jError
 from app.exceptions import MemoryOutException
 from app.services.package_service import PackageService
 
+pytestmark = pytest.mark.asyncio 
 
 class _TestNeo4jError(Neo4jError):
     def __init__(self, message: str, code: str):

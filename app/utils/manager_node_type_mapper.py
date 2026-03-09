@@ -11,6 +11,7 @@ class ManagerNodeTypeMapper:
         Manager.nuget: NodeType.nuget_package,
         Manager.cargo: NodeType.cargo_package,
         Manager.rubygems: NodeType.rubygems_package,
+        Manager.go: NodeType.go_package,
     }
 
     @classmethod

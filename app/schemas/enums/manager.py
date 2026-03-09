@@ -8,3 +8,4 @@ class Manager(str, Enum):
     pypi = "PyPI"
     npm = "NPM"
     maven = "Maven"
+    go = "Go"

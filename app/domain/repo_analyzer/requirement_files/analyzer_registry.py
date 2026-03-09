@@ -16,9 +16,11 @@ from .pyproject_toml_analyzer import PyprojectTomlAnalyzer
 from .requirements_txt_analyzer import RequirementsTxtAnalyzer
 from .setup_cfg_analyzer import SetupCfgAnalyzer
 from .setup_py_analyzer import SetupPyAnalyzer
+from .go_analyzer import GoAnalyzer
 
 
 class AnalyzerRegistry:
+
     instance: ClassVar[AnalyzerRegistry | None] = None
     analyzers: dict[str, RequirementFileAnalyzer]
 
@@ -42,6 +44,7 @@ class AnalyzerRegistry:
             "requirements.txt": RequirementsTxtAnalyzer(),
             "setup.cfg": SetupCfgAnalyzer(),
             "setup.py": SetupPyAnalyzer(),
+            "go.mod": GoAnalyzer(),
         }
 
     def get_analyzer(self, filename: str) -> RequirementFileAnalyzer | None:
@@ -53,6 +56,7 @@ class AnalyzerRegistry:
         repository_path: str,
         filename: str,
     ) -> dict[str, dict[str, dict | str]]:
+        
         analyzer: RequirementFileAnalyzer | None = self.get_analyzer(filename)
         if analyzer:
             return run(

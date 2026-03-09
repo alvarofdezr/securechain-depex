@@ -8,3 +8,4 @@ class NodeType(str, Enum):
     pypi_package = "PyPIPackage"
     npm_package = "NPMPackage"
     maven_package = "MavenPackage"
+    go_package = "GoPackage"

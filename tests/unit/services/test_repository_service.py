@@ -6,6 +6,7 @@ import pytest
 
 from app.services.repository_service import RepositoryService
 
+pytestmark = pytest.mark.asyncio 
 
 class TestRepositoryService:
 

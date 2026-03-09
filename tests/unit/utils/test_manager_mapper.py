@@ -28,6 +28,10 @@ class TestManagerNodeTypeMapper:
         result = ManagerNodeTypeMapper.manager_to_node_type("NuGet")
         assert result == NodeType.nuget_package.value
 
+    def test_go_to_node_type(self):
+        result = ManagerNodeTypeMapper.manager_to_node_type("Go")
+        assert result == NodeType.go_package.value
+
     def test_invalid_manager_defaults_to_pypi(self):
         result = ManagerNodeTypeMapper.manager_to_node_type("InvalidManager")
         assert result == NodeType.pypi_package.value

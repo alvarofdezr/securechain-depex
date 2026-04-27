@@ -8,10 +8,11 @@ class FileTypes:
     NUGET: ClassVar[list[str]] = ["packages.config"]
     RUBY: ClassVar[list[str]] = ["Gemfile", "Gemfile.lock"]
     CARGO: ClassVar[list[str]] = ["Cargo.toml", "Cargo.lock"]
+    GO: ClassVar[list[str]] = ["go.mod"]
     SBOM: ClassVar[list[str]] = ["bom.json", "bom.xml", "sbom.json", "sbom.xml", ".cyclonedx.json", ".cyclonedx.xml", ".cdx.json", ".cdx.xml", ".spdx.json", ".spdx.xml"]
 
     ALL_REQUIREMENT_FILES: ClassVar[set[str]] = set(
-        PYPI + NPM + MAVEN + NUGET + RUBY + CARGO + SBOM
+        PYPI + NPM + MAVEN + NUGET + RUBY + CARGO + GO + SBOM
     )
 
 class PurlTypeToManager:
@@ -22,6 +23,7 @@ class PurlTypeToManager:
         "nuget": "NuGet",
         "cargo": "Cargo",
         "gem": "RubyGems",
+        "golang": "Go",
     }
 
 class ResponseCode:

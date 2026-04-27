@@ -148,28 +148,28 @@ class GoAnalyzer(RequirementFileAnalyzer):
         """
         dependencies: dict[str, str] = {}
 
-        # --- Single-line require directives ---
-        single_pattern = r"^\s*require\s+(\S+)\s+(\S+)(?:\s+//\s*indirect)?"
-        for match in re.finditer(single_pattern, content, re.MULTILINE):
-            dependencies[match.group(1)] = match.group(2)
+        # 1. Limpiar comentarios y líneas vacías primero para no confundir al Regex
+        pattern = r"^\s*([a-zA-Z0-9\.\-\/]+)\s+(v[0-9\.]+[\-[a-zA-Z0-9\.]*]*)"
 
-        # --- Block require directives ---
-        block_pattern = r"require\s*\((.*?)\)"
-        line_pattern = r"^\s*(\S+)\s+(\S+)"
-        for block_match in re.finditer(block_pattern, content, re.DOTALL):
-            block_content = block_match.group(1)
-            for line in block_content.split("\n"):
-                line = line.strip()
-                if not line or line.startswith("//"):
-                    continue
-                # Strip inline comments before matching to avoid capturing
-                # annotation tokens (e.g. '// indirect') as part of the version.
-                if "//" in line:
-                    line = line.split("//")[0].strip()
-                match = re.match(line_pattern, line)
-                if match:
-                    dependencies[match.group(1)] = match.group(2)
+        lines = content.split('\n')
+        for line in lines:
+            line = line.strip()
 
+            # Saltamos líneas de estructura de go.mod
+            if not line or line.startswith(('module', 'go', 'require', ')', '//')):
+                continue
+
+            match = re.search(pattern, line)
+            if match:
+                pkg_name = match.group(1)
+                pkg_version = match.group(2)
+
+                # Filtro de seguridad: el nombre del paquete debe tener al menos un punto (ej: github.com)
+                if "." in pkg_name:
+                    dependencies[pkg_name] = pkg_version
+                    print(f"DEBUG: Paquete añadido: {pkg_name}")
+
+        print(f"DEBUG: Total dependencias finales: {len(dependencies)}")
         return dependencies
 
 

@@ -72,7 +72,7 @@ class RequirementFileService:
             [rel IN relationships WHERE type(rel) = 'REQUIRE' |
                 {
                 parent_serial_number: startNode(rel).serial_number,
-                package: endNode(rel).purl,
+                package: coalesce(endNode(rel).purl, endNode(rel).name),
                 constraints: rel.constraints,
                 parent_version_name: rel.parent_version_name,
                 type: CASE WHEN rel.parent_version_name IS NULL THEN 'direct' ELSE 'indirect' END
@@ -80,7 +80,7 @@ class RequirementFileService:
             ] AS require,
             [rel IN relationships WHERE type(rel) = 'HAVE' |
                 {
-                package: startNode(rel).purl,
+                package: coalesce(startNode(rel).purl, startNode(rel).name),
                 name: endNode(rel).name,
                 serial_number: endNode(rel).serial_number,
                 mean: endNode(rel).mean,
@@ -94,6 +94,7 @@ class RequirementFileService:
             have: apoc.map.groupByMulti(apoc.coll.sortMaps(have, 'serial_number'), 'package')
         } As smt_info
         """
+        # ... resto de la función ...
         try:
             async with self.driver.session() as session:
                 record = await session.execute_read(

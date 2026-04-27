@@ -174,7 +174,7 @@ class RepositoryInitializer:
                     node_type=node_type,
                     package=package_name,
                     vendor="n/a",
-                    repository_url=None,
+                    repository_url="",
                     constraints=constraints,
                     parent_id=req_file_id,
                     parent_version=None,

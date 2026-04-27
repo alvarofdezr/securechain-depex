@@ -1,9 +1,10 @@
-from glob import glob
 from os import makedirs
-from os.path import exists, isdir, join
+from os.path import exists, join
 from shutil import rmtree
 
 from aiofiles import open
+from glob import glob
+from os.path import isdir
 
 from app.constants import FileTypes
 from app.http_session import HTTPSessionManager
@@ -42,41 +43,49 @@ class RepositoryAnalyzer:
         makedirs(repository_path)
 
         session = await self.http_session.get_session()
-        await self.download_directory_contents(session, owner, name, "", repository_path)
+        await self.download_tree_contents(session, owner, name, repository_path)
         return repository_path
 
-    async def download_directory_contents(
+    async def download_tree_contents(
         self,
         session,
         owner: str,
         name: str,
-        path: str,
         repository_path: str,
     ) -> None:
-        url = f"https://api.github.com/repos/{owner}/{name}/contents/{path}"
+        # Get the full tree in a single API call (avoids recursive directory traversal)
+        url = f"https://api.github.com/repos/{owner}/{name}/git/trees/HEAD?recursive=1"
         async with session.get(url) as resp:
             if resp.status != 200:
                 return
-            contents = await resp.json()
+            data = await resp.json()
 
-        for item in contents:
-            if item["type"] == "file":
-                if any(extension in item["name"] for extension in FileTypes.ALL_REQUIREMENT_FILES):
-                    raw_url = item["download_url"]
-                    async with session.get(raw_url) as file_resp:
-                        if file_resp.status == 200:
-                            file_content = await file_resp.text()
-                            relative_path = item["path"]
-                            filepath = join(repository_path, relative_path)
-                            file_dir = filepath.rsplit("/", 1)[0]
-                            if not exists(file_dir):
-                                makedirs(file_dir)
-                            async with open(filepath, "w") as f:
-                                await f.write(file_content)
-            elif item["type"] == "dir":
-                await self.download_directory_contents(
-                    session, owner, name, item["path"], repository_path
-                )
+        tree = data.get("tree", [])
+
+        for item in tree:
+            if item.get("type") != "blob":
+                continue
+
+            file_path = item.get("path", "")
+            file_name = file_path.rsplit("/", 1)[-1]
+
+            # Only download files that match known requirement file names
+            if not any(extension in file_name for extension in FileTypes.ALL_REQUIREMENT_FILES):
+                continue
+
+            # Download the raw file content
+            raw_url = f"https://raw.githubusercontent.com/{owner}/{name}/HEAD/{file_path}"
+            async with session.get(raw_url) as file_resp:
+                if file_resp.status != 200:
+                    continue
+                file_content = await file_resp.text()
+
+            filepath = join(repository_path, file_path)
+            file_dir = filepath.rsplit("/", 1)[0]
+            if not exists(file_dir):
+                makedirs(file_dir)
+            async with open(filepath, "w") as f:
+                await f.write(file_content)
 
     def get_req_files_names(self, directory_path: str) -> list[str]:
         requirement_files = []

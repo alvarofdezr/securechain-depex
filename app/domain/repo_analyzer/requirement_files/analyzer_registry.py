@@ -15,14 +15,13 @@ from .package_lock_json_analyzer import PackageLockJsonAnalyzer
 from .pom_xml_analyzer import PomXmlAnalyzer
 from .pyproject_toml_analyzer import PyprojectTomlAnalyzer
 from .requirements_txt_analyzer import RequirementsTxtAnalyzer
+from .go_analyzer import GoAnalyzer
 from .setup_cfg_analyzer import SetupCfgAnalyzer
 from .setup_py_analyzer import SetupPyAnalyzer
-from .go_analyzer import GoAnalyzer
 from .spdx_sbom_analyzer import SpdxSbomAnalyzer
 
 
 class AnalyzerRegistry:
-
     instance: ClassVar[AnalyzerRegistry | None] = None
     analyzers: dict[str, RequirementFileAnalyzer]
 
@@ -46,9 +45,9 @@ class AnalyzerRegistry:
             "pom.xml": PomXmlAnalyzer(),
             "pyproject.toml": PyprojectTomlAnalyzer(),
             "requirements.txt": RequirementsTxtAnalyzer(),
+            "go.mod": GoAnalyzer(),
             "setup.cfg": SetupCfgAnalyzer(),
             "setup.py": SetupPyAnalyzer(),
-            "go.mod": GoAnalyzer(),
         }
 
     def get_analyzer(self, filename: str, repository_path: str) -> RequirementFileAnalyzer | None:

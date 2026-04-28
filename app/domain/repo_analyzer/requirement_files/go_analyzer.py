@@ -2,7 +2,9 @@ import re
 from pathlib import Path
 from typing import Any
 
-from app.domain.repo_analyzer.requirement_files.base_analyzer import RequirementFileAnalyzer
+from app.domain.repo_analyzer.requirement_files.base_analyzer import (
+    RequirementFileAnalyzer,
+)
 from app.schemas.enums.manager import Manager
 
 
@@ -148,15 +150,16 @@ class GoAnalyzer(RequirementFileAnalyzer):
         """
         dependencies: dict[str, str] = {}
 
-        # 1. Limpiar comentarios y líneas vacías primero para no confundir al Regex
-        pattern = r"^\s*([a-zA-Z0-9\.\-\/]+)\s+(v[0-9\.]+[\-[a-zA-Z0-9\.]*]*)"
+        pattern = r"^\s*(?:require\s+)?([a-zA-Z0-9\.\-\/]+)\s+(v[0-9\.]+[\-[a-zA-Z0-9\.]*]*)"
 
         lines = content.split('\n')
         for line in lines:
             line = line.strip()
 
-            # Saltamos líneas de estructura de go.mod
-            if not line or line.startswith(('module', 'go', 'require', ')', '//')):
+            if not line or line.startswith(('module', 'go', ')', '//')):
+                continue
+
+            if line == "require (":
                 continue
 
             match = re.search(pattern, line)
@@ -164,7 +167,6 @@ class GoAnalyzer(RequirementFileAnalyzer):
                 pkg_name = match.group(1)
                 pkg_version = match.group(2)
 
-                # Filtro de seguridad: el nombre del paquete debe tener al menos un punto (ej: github.com)
                 if "." in pkg_name:
                     dependencies[pkg_name] = pkg_version
                     print(f"DEBUG: Paquete añadido: {pkg_name}")

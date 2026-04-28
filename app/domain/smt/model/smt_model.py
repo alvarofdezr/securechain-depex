@@ -24,14 +24,16 @@ class SMTModel:
 
     def convert(self, model_text: str) -> None:
         self.domain = parse_smt2_string(model_text)
-        name = self.source_data.get('name', 'unknown')
+        name = self.source_data.get('name') or 'unknown'
         self.func_obj = Real(f"file_risk_{name}")
 
     def transform(self) -> str:
         for key in ["direct", "indirect"]:
             for require in self.source_data.get("require", {}).get(key, []):
                 getattr(self, f"transform_{key}_package")(require)
-        file_risk_name = f"file_risk_{self.source_data.get('name', 'unknown')}"
+
+        name = self.source_data.get('name') or 'unknown'
+        file_risk_name = f"file_risk_{name}"
         self.var_domain.add(f"(declare-const {file_risk_name} Real)")
         self.build_indirect_constraints()
         self.build_impact_constraints()
@@ -46,8 +48,8 @@ class SMTModel:
         return model_text
 
     def transform_direct_package(self, require: dict[str, Any]) -> None:
-        package = require.get("package", "")
-        constraints = require.get("constraints", "")
+        package = require.get("package") or ""
+        constraints = require.get("constraints") or ""
 
         versions_impacts = self.get_filtered_versions_impacts(package, constraints)
         versions_names = list(versions_impacts.keys())
@@ -62,10 +64,14 @@ class SMTModel:
         self.transform_versions(versions_impacts, package)
 
     def transform_indirect_package(self, require: dict[str, Any]) -> None:
-        package = require.get("package", "")
-        constraints = require.get("constraints", "")
-        parent_version_name = require.get("parent_version_name", "")
-        parent_serial_number = require.get("parent_serial_number", -1)
+        package = require.get("package") or ""
+        constraints = require.get("constraints") or ""
+
+        parent_version_name = require.get("parent_version_name") or ""
+
+        # Blindaje crítico contra nulls de Neo4j
+        parent_serial_number = require.get("parent_serial_number")
+        parent_serial_number = parent_serial_number if parent_serial_number is not None else -1
 
         versions_impacts = self.get_filtered_versions_impacts(package, constraints)
         versions_names = list(versions_impacts.keys())
@@ -79,21 +85,32 @@ class SMTModel:
         self.filtered_versions[package] = versions_names
         self.transform_versions(versions_impacts, package, require)
 
-    def get_filtered_versions_impacts(self, package: str, constraints: str) -> dict[int, int]:
-        package_versions = self.source_data.get("have", {}).get(package, [])
+    def get_filtered_versions_impacts(self, package: str, constraints: str) -> dict[int, float]:
+        package_versions = self.source_data.get("have", {}).get(package) or []
+
         filtered_versions = VersionFilter.filter_versions(
             self.node_type,
             package_versions,
             constraints
         )
-        return {
-            version.get("serial_number", -1): version.get(self.aggregator, 0)
-            for version in filtered_versions
-        }
 
-    def transform_versions(self, versions: dict[int, int], var: str, require: dict[str, Any] | None = None) -> None:
+        result = {}
+        for version in filtered_versions:
+            sn = version.get("serial_number")
+            impact = version.get(self.aggregator)
+
+            safe_sn = sn if sn is not None else -1
+            safe_impact = float(impact) if impact is not None else 0.0
+
+            result[safe_sn] = safe_impact
+
+        return result
+
+    def transform_versions(self, versions: dict[int, float], var: str, require: dict[str, Any] | None = None) -> None:
         parent_version_name = require.get("parent_version_name") if require else None
         parent_serial_number = require.get("parent_serial_number") if require else None
+        if parent_serial_number is None:
+            parent_serial_number = -1
 
         if not require or (
             parent_version_name in self.filtered_versions and
@@ -101,7 +118,7 @@ class SMTModel:
         ):
             impact_version_group = {}
             if require:
-                package = require.get('package', '')
+                package = require.get('package') or ""
                 self.impacts.add(f"|impact_{package}|")
                 self.indirect_vars.add(var)
                 if parent_version_name:
@@ -126,7 +143,8 @@ class SMTModel:
         if versions:
             self.ctc_domain += f"{self.group_versions(var, versions, False)} "
         else:
-            self.ctc_domain += "false "
+            # Si el paquete no tiene versiones válidas, asume -1 en vez de crashear todo el árbol
+            self.ctc_domain += f"(= |{var}| -1) "
 
     def build_indirect_constraints(self) -> None:
         for versions, _ in self.childs.items():

@@ -30,7 +30,7 @@ class RedisQueue:
         await self._ensure_stream()
         message_dict = message.model_dump(mode="json")
         raw_json = dumps(message_dict)
-        msg_id = self.r.xadd(settings.REDIS_STREAM, {"data": raw_json})
+        msg_id = await self.r.xadd(settings.REDIS_STREAM, {"data": raw_json})
         return msg_id
 
     async def ack(self, msg_id: str) -> None:

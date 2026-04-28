@@ -234,7 +234,7 @@ class TestSMTModel:
         model = SMTModel({"name": "test"}, "PyPIPackage", "mean")
         model.build_direct_constraint("fastapi", [])
 
-        assert "false" in model.ctc_domain
+        assert "(= |fastapi| -1)" in model.ctc_domain
 
     def test_build_indirect_constraints(self):
         model = SMTModel({"name": "test"}, "PyPIPackage", "mean")

@@ -172,7 +172,7 @@ class TestCycloneDxSbomAnalyzer:
     def test_parse_json_ignores_unsupported_package_type(self, analyzer, temp_dir):
         components = [
             {"purl": "pkg:pypi/requests@2.28.0"},
-            {"purl": "pkg:golang/github.com/gin-gonic/gin@1.8.1"},  # Not supported
+            {"purl": "pkg:pub/path@1.8.0"},  # Not supported
         ]
         self.create_cyclonedx_json(temp_dir, "sbom.json", components)
 

@@ -258,7 +258,7 @@ class TestSpdxSbomAnalyzer:
                 "name": "gin",
                 "SPDXID": "SPDXRef-Package-gin",
                 "externalRefs": [
-                    {"referenceType": "purl", "referenceLocator": "pkg:golang/github.com/gin-gonic/gin@1.8.1"}
+                    {"referenceType": "purl", "referenceLocator": "pkg:pub/path@1.8.0"}
                 ]
             },
         ]

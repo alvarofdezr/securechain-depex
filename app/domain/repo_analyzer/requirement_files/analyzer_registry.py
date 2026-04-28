@@ -22,16 +22,28 @@ from .spdx_sbom_analyzer import SpdxSbomAnalyzer
 
 
 class AnalyzerRegistry:
-    instance: ClassVar[AnalyzerRegistry | None] = None
+    """Singleton registry that maintains and provides specific requirement file analyzers.
+
+    This class handles the initialization and resolution of the correct analyzer
+    strategy based on file names, extensions, or file content (e.g., for SBOMs).
+    """
+
+    instance: ClassVar['AnalyzerRegistry | None'] = None
     analyzers: dict[str, RequirementFileAnalyzer]
 
-    def __new__(cls) -> AnalyzerRegistry:
+    def __new__(cls) -> 'AnalyzerRegistry':
+        """Creates or returns the singleton instance of the AnalyzerRegistry.
+
+        Returns:
+            AnalyzerRegistry: The singleton instance.
+        """
         if cls.instance is None:
             cls.instance = super().__new__(cls)
             cls.instance.initialize()
         return cls.instance
 
     def initialize(self) -> None:
+        """Initializes the dictionary of supported requirement file analyzers."""
         self.analyzers = {
             "Cargo.lock": CargoLockAnalyzer(),
             "Cargo.toml": CargoTomlAnalyzer(),
@@ -51,6 +63,19 @@ class AnalyzerRegistry:
         }
 
     def get_analyzer(self, filename: str, repository_path: str) -> RequirementFileAnalyzer | None:
+        """Retrieves the appropriate analyzer for a given filename.
+
+        Uses exact matching first, then falls back to heuristic matching for
+        common file patterns or deep content inspection for SBOM files.
+
+        Args:
+            filename (str): The name or relative path of the file to analyze.
+            repository_path (str): The base path of the repository.
+
+        Returns:
+            RequirementFileAnalyzer | None: The matching analyzer instance,
+                or None if no suitable analyzer is found.
+        """
         file_basename = filename.split("/")[-1]
 
         if file_basename in self.analyzers:
@@ -78,6 +103,14 @@ class AnalyzerRegistry:
         return None
 
     def is_sbom_file(self, filename: str) -> bool:
+        """Determines if a filename suggests it might be a Software Bill of Materials (SBOM).
+
+        Args:
+            filename (str): The name of the file to check.
+
+        Returns:
+            bool: True if the file name matches common SBOM patterns, False otherwise.
+        """
         file_lower = filename.lower()
         return (
             "sbom" in file_lower or
@@ -88,6 +121,15 @@ class AnalyzerRegistry:
         )
 
     def detect_sbom_format(self, filename: str, repository_path: str) -> str | None:
+        """Detects the specific SBOM format (CycloneDX or SPDX) based on file extension and content.
+
+        Args:
+            filename (str): The relative path of the SBOM file.
+            repository_path (str): The local path to the repository root.
+
+        Returns:
+            str | None: The detected format ('cyclonedx' or 'spdx'), or None if undetected.
+        """
         filepath = f"{repository_path}/{filename}"
 
         try:
@@ -101,6 +143,14 @@ class AnalyzerRegistry:
         return None
 
     def detect_json_sbom_format(self, filepath: str) -> str | None:
+        """Parses a JSON file to determine its SBOM format.
+
+        Args:
+            filepath (str): The absolute local path to the JSON file.
+
+        Returns:
+            str | None: The detected format ('cyclonedx' or 'spdx'), or None if undetected.
+        """
         try:
             with open(filepath, encoding="utf-8") as file:
                 data = load(file)
@@ -117,6 +167,14 @@ class AnalyzerRegistry:
         return None
 
     def detect_xml_sbom_format(self, filepath: str) -> str | None:
+        """Parses an XML file to determine its SBOM format based on namespaces.
+
+        Args:
+            filepath (str): The absolute local path to the XML file.
+
+        Returns:
+            str | None: The detected format ('cyclonedx' or 'spdx'), or None if undetected.
+        """
         try:
             tree = parse(filepath)
             root = tree.getroot()
@@ -142,6 +200,17 @@ class AnalyzerRegistry:
         repository_path: str,
         filename: str,
     ) -> dict[str, dict[str, dict | str]]:
+        """Synchronously analyzes a requirement file using the appropriate registered analyzer.
+
+        Args:
+            requirement_files (dict[str, dict[str, dict | str]]): The current dictionary
+                of processed requirement files and their dependencies.
+            repository_path (str): The local base path of the repository.
+            filename (str): The relative path of the file to analyze.
+
+        Returns:
+            dict[str, dict[str, dict | str]]: The updated requirement files dictionary.
+        """
         analyzer: RequirementFileAnalyzer | None = self.get_analyzer(filename, repository_path)
         if analyzer:
             return run(

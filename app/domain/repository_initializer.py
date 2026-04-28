@@ -14,7 +14,22 @@ from .repo_analyzer import RepositoryAnalyzer
 
 
 class RepositoryInitializer:
+    """Orchestrates the initialization and update lifecycle of software repositories.
+    
+    Manages repository creation, requirement file extraction, package queuing,
+    and incremental updates. Coordinates between repository analysis, database
+    persistence, and asynchronous package processing through a Redis queue.
+    
+    Attributes:
+        redis_queue: Message queue for package processing.
+        repository_service: Service for repository CRUD operations.
+        requirement_file_service: Service for requirement file management.
+        package_service: Service for package operations.
+        repo_analyzer: Analyzer for discovering requirement files in repositories.
+    """
+
     def __init__(self):
+        """Initializes the repository initializer with required service dependencies."""
         container = ServiceContainer()
         self.redis_queue: RedisQueue = container.get_redis_queue()
         self.repository_service: RepositoryService = container.get_repository_service()
@@ -30,6 +45,26 @@ class RepositoryInitializer:
         repository: dict[str, Any] | None,
         last_commit_date: datetime,
     ) -> str:
+        """Initializes or updates a repository with the specified owner and name.
+        
+        Creates a new repository record if one does not exist, or performs an 
+        incremental update if the repository exists and has newer commits.
+        Establishes the user-repository relationship upon completion.
+        
+        Args:
+            owner: The repository owner identifier (e.g., GitHub organization).
+            name: The repository name.
+            user_id: The user ID requesting the repository initialization.
+            repository: Existing repository record, or None if creating new.
+            last_commit_date: The timestamp of the latest commit in the repository.
+        
+        Returns:
+            The repository identifier (UUID).
+        
+        Raises:
+            ValueError: If repository data is invalid or creation fails.
+            Exception: Propagates exceptions from underlying services.
+        """
         raw_requirement_files = await self.repo_analyzer.analyze(owner, name)
 
         if repository is None:
@@ -70,6 +105,18 @@ class RepositoryInitializer:
         raw_requirement_files: dict,
         repository_id: str
     ) -> None:
+        """Extracts and processes all requirement files from a newly discovered repository.
+        
+        Iterates through raw requirement file data and creates corresponding
+        persistent records and package queue entries.
+        
+        Args:
+            raw_requirement_files: Dictionary mapping requirement file names to their parsed content.
+            repository_id: The target repository identifier.
+        
+        Raises:
+            Exception: Propagates exceptions from requirement file processing.
+        """
         for name, file_data in raw_requirement_files.items():
             await self.process_requirement_file(name, file_data, repository_id)
 
@@ -78,6 +125,19 @@ class RepositoryInitializer:
         raw_requirement_files: dict,
         repository_id: str
     ) -> None:
+        """Performs an incremental update of an existing repository's requirement files.
+        
+        Compares current repository state with newly discovered files. Deletes
+        files no longer present, updates existing files with new constraints,
+        and queues newly discovered files for processing.
+        
+        Args:
+            raw_requirement_files: Dictionary mapping requirement file names to their parsed content.
+            repository_id: The target repository identifier.
+        
+        Raises:
+            Exception: Propagates exceptions from database or file operations.
+        """
         existing_files = await self.requirement_file_service.read_requirement_files_by_repository(repository_id)
 
         for file_name, requirement_file_id in existing_files.items():
@@ -101,6 +161,19 @@ class RepositoryInitializer:
         requirement_file_id: str,
         file_data: dict,
     ) -> None:
+        """Updates an existing requirement file with new package constraints.
+        
+        Performs a three-way merge: updates constraints for existing packages,
+        removes packages no longer present, and queues newly discovered packages
+        for processing.
+        
+        Args:
+            requirement_file_id: The target requirement file identifier.
+            file_data: Dictionary containing 'packages' (dict) and 'manager' (str) keys.
+        
+        Raises:
+            Exception: Propagates exceptions from package or database operations.
+        """
         existing_packages = await self.package_service.read_packages_by_requirement_file(requirement_file_id)
         new_packages = file_data.get("packages", {})
 
@@ -128,6 +201,19 @@ class RepositoryInitializer:
         file_data: dict,
         repository_id: str
     ) -> None:
+        """Processes a discovered requirement file by creating a record and queuing its packages.
+        
+        Acts as a convenience wrapper that creates a persistent requirement file
+        record and initiates asynchronous package processing.
+        
+        Args:
+            name: The requirement file name or path within the repository.
+            file_data: Dictionary containing 'manager' and 'packages' keys.
+            repository_id: The parent repository identifier.
+        
+        Raises:
+            Exception: Propagates exceptions from file creation or package queuing.
+        """
         manager = file_data.get("manager", "UNKNOWN")
         packages = file_data.get("packages", {})
 
@@ -143,6 +229,19 @@ class RepositoryInitializer:
         manager: str,
         repository_id: str
     ) -> str:
+        """Creates a persistent requirement file record in the database.
+        
+        Args:
+            name: The requirement file name or path.
+            manager: The package manager type (e.g., 'pip', 'npm', 'maven', 'UNKNOWN').
+            repository_id: The parent repository identifier.
+        
+        Returns:
+            The created requirement file identifier (UUID).
+        
+        Raises:
+            Exception: Propagates exceptions from database operations.
+        """
         req_file_dict = {
             "name": name,
             "manager": manager,
@@ -156,6 +255,20 @@ class RepositoryInitializer:
         manager: str,
         req_file_id: str
     ) -> None:
+        """Queues packages for asynchronous processing via Redis.
+        
+        Separates packages into existing (which are directly related to the requirement file)
+        and new (which are queued for discovery and analysis). For the 'ANY' manager type,
+        extracts the manager prefix from the package key to determine node type.
+        
+        Args:
+            packages: Dictionary mapping package identifiers to version constraints.
+            manager: The package manager type; if 'ANY', package keys contain manager prefix.
+            req_file_id: The parent requirement file identifier.
+        
+        Raises:
+            Exception: Propagates exceptions from queue or package service operations.
+        """
         packages_by_type: dict[str, list] = {}
 
         for package_key, constraints in packages.items():

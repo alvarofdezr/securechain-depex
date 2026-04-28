@@ -1,7 +1,15 @@
+"""Constants used throughout the application.
+
+This module defines various constants including file types, mappings,
+response codes, and response messages used by the API and internal services.
+"""
+
 from typing import ClassVar
 
 
 class FileTypes:
+    """Defines supported requirement file names categorized by ecosystem."""
+
     PYPI: ClassVar[list[str]] = ["pyproject.toml", "setup.cfg", "setup.py", "requirements.txt"]
     NPM: ClassVar[list[str]] = ["package.json", "package-lock.json"]
     MAVEN: ClassVar[list[str]] = ["pom.xml"]
@@ -16,6 +24,8 @@ class FileTypes:
     )
 
 class PurlTypeToManager:
+    """Maps Package URL (PURL) types to package manager names."""
+
     MAPPING: ClassVar[dict[str, str]] = {
         "pypi": "PyPI",
         "npm": "NPM",
@@ -27,6 +37,8 @@ class PurlTypeToManager:
     }
 
 class ResponseCode:
+    """Defines standardized response codes for API responses."""
+
     # Health
     HEALTHY = "healthy"
 
@@ -76,6 +88,8 @@ class ResponseCode:
 
 
 class ResponseMessage:
+    """Defines standardized human-readable response messages for API responses."""
+
     # Health
     HEALTHY = "The API is running and healthy"
 

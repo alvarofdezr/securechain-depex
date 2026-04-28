@@ -1,10 +1,9 @@
+from glob import glob
 from os import makedirs
-from os.path import exists, join
+from os.path import exists, isdir, join
 from shutil import rmtree
 
 from aiofiles import open
-from glob import glob
-from os.path import isdir
 
 from app.constants import FileTypes
 from app.http_session import HTTPSessionManager
@@ -13,11 +12,33 @@ from .requirement_files import AnalyzerRegistry
 
 
 class RepositoryAnalyzer:
+    """Analyzes a repository to extract and parse its requirement files.
+
+    This class handles the downloading of repository contents from GitHub
+    and delegating the parsing of specific requirement files to registered
+    analyzers.
+    """
+
     def __init__(self, http_session: HTTPSessionManager):
+        """Initializes the RepositoryAnalyzer.
+
+        Args:
+            http_session (HTTPSessionManager): The HTTP session manager to use for requests.
+        """
         self.registry = AnalyzerRegistry()
         self.http_session = http_session
 
     async def analyze(self, owner: str, name: str) -> dict[str, dict[str, dict | str]]:
+        """Analyzes a repository and extracts its dependencies.
+
+        Args:
+            owner (str): The owner of the repository.
+            name (str): The name of the repository.
+
+        Returns:
+            dict[str, dict[str, dict | str]]: A dictionary mapping requirement
+                file paths to their parsed dependency information.
+        """
         requirement_files: dict[str, dict[str, dict | str]] = {}
         repository_path = await self.download_repository(owner, name)
 
@@ -37,6 +58,15 @@ class RepositoryAnalyzer:
         return requirement_files
 
     async def download_repository(self, owner: str, name: str) -> str:
+        """Downloads the relevant files from a repository.
+
+        Args:
+            owner (str): The owner of the repository.
+            name (str): The name of the repository.
+
+        Returns:
+            str: The local filesystem path where the repository files were downloaded.
+        """
         repository_path = f"repositories/{owner}/{name}"
         if exists(repository_path):
             rmtree(repository_path)
@@ -53,7 +83,17 @@ class RepositoryAnalyzer:
         name: str,
         repository_path: str,
     ) -> None:
-        # Get the full tree in a single API call (avoids recursive directory traversal)
+        """Downloads the repository tree contents containing requirement files.
+
+        Fetches the repository file tree in a single API request and downloads
+        only the files that match recognized requirement file extensions.
+
+        Args:
+            session: The active aiohttp client session.
+            owner (str): The owner of the repository.
+            name (str): The name of the repository.
+            repository_path (str): The local destination path for downloaded files.
+        """
         url = f"https://api.github.com/repos/{owner}/{name}/git/trees/HEAD?recursive=1"
         async with session.get(url) as resp:
             if resp.status != 200:
@@ -69,11 +109,9 @@ class RepositoryAnalyzer:
             file_path = item.get("path", "")
             file_name = file_path.rsplit("/", 1)[-1]
 
-            # Only download files that match known requirement file names
             if not any(extension in file_name for extension in FileTypes.ALL_REQUIREMENT_FILES):
                 continue
 
-            # Download the raw file content
             raw_url = f"https://raw.githubusercontent.com/{owner}/{name}/HEAD/{file_path}"
             async with session.get(raw_url) as file_resp:
                 if file_resp.status != 200:
@@ -88,6 +126,14 @@ class RepositoryAnalyzer:
                 await f.write(file_content)
 
     def get_req_files_names(self, directory_path: str) -> list[str]:
+        """Recursively retrieves the paths of all requirement files in a directory.
+
+        Args:
+            directory_path (str): The base directory path to search.
+
+        Returns:
+            list[str]: A list of relative paths to the discovered requirement files.
+        """
         requirement_files = []
         paths = glob(directory_path + "/**", recursive=True)
         for _path in paths:
@@ -97,6 +143,14 @@ class RepositoryAnalyzer:
         return requirement_files
 
     def is_req_file(self, requirement_file_name: str) -> bool:
+        """Checks if a given file name corresponds to a known requirement file type.
+
+        Args:
+            requirement_file_name (str): The name of the file to check.
+
+        Returns:
+            bool: True if the file is a recognized requirement file, False otherwise.
+        """
         return any(
             extension in requirement_file_name for extension in FileTypes.ALL_REQUIREMENT_FILES
         )

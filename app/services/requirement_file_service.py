@@ -9,12 +9,41 @@ from app.exceptions import MemoryOutException
 
 
 class RequirementFileService:
+    """Data access layer for requirement file graph operations in Neo4j.
+    
+    Manages CRUD operations and complex graph queries for requirement files,
+    including dependency graph traversal, version information retrieval, and
+    constraint management. Handles Neo4j transient errors and memory exceptions.
+    
+    Attributes:
+        driver: Neo4j async driver instance for database operations.
+    """
+
     def __init__(self, db: DatabaseManager):
+        """Initializes the requirement file service with a database connection.
+        
+        Args:
+            db: DatabaseManager instance providing Neo4j driver access.
+        """
         self.driver = db.get_neo4j_driver()
 
     @staticmethod
     @unit_of_work(timeout=3)
     async def read_graph_req_file(tx, query, requirement_file_id, max_depth):
+        """Executes a read query on the requirement file graph with timeout enforcement.
+        
+        Internal helper method wrapped with Neo4j unit_of_work decorator for
+        transaction scoping and 3-second timeout enforcement.
+        
+        Args:
+            tx: Neo4j transaction context (injected by unit_of_work).
+            query: Cypher query string.
+            requirement_file_id: The requirement file element ID.
+            max_depth: Maximum graph traversal depth.
+        
+        Returns:
+            A single query result record or None.
+        """
         result = await tx.run(
             query,
             requirement_file_id=requirement_file_id,
@@ -23,6 +52,20 @@ class RequirementFileService:
         return await result.single()
 
     async def create_requirement_file(self, requirement_file: dict[str, Any], repository_id: str) -> str:
+        """Creates a new RequirementFile node and links it to a repository.
+        
+        Establishes a USE relationship from the repository to the new requirement file.
+        
+        Args:
+            requirement_file: Dictionary with 'name', 'manager', and 'moment' keys.
+            repository_id: The parent repository element ID.
+        
+        Returns:
+            The created RequirementFile element ID (UUID) or empty string on failure.
+        
+        Raises:
+            Neo4jError: If graph operation fails.
+        """
         query = """
         MATCH (r:Repository)
         WHERE elementid(r) = $repository_id
@@ -36,6 +79,18 @@ class RequirementFileService:
         return record.get("id") if record else ""
 
     async def read_requirement_files_by_repository(self, repository_id: str) -> dict[str, str]:
+        """Retrieves all requirement files associated with a repository.
+        
+        Args:
+            repository_id: The repository element ID.
+        
+        Returns:
+            Dictionary mapping requirement file names to their element IDs.
+            Returns empty dict if repository has no requirement files.
+        
+        Raises:
+            Neo4jError: If graph query fails.
+        """
         query = """
         MATCH (r:Repository)
         WHERE elementid(r) = $repository_id
@@ -48,6 +103,17 @@ class RequirementFileService:
         return record.get("requirement_files") if record else {}
 
     async def read_requirement_file_moment(self, requirement_file_id: str) -> datetime | None:
+        """Retrieves the timestamp of a requirement file.
+        
+        Args:
+            requirement_file_id: The requirement file element ID.
+        
+        Returns:
+            The datetime when the requirement file was last analyzed, or None if not found.
+        
+        Raises:
+            Neo4jError: If graph query fails.
+        """
         query = """
         MATCH (rf:RequirementFile)
         WHERE elementid(rf) = $requirement_file_id
@@ -63,6 +129,37 @@ class RequirementFileService:
         requirement_file_id: str,
         max_depth: int
     ) -> dict[str, Any]:
+        """Retrieves dependency graph data formatted for SMT solver transformation.
+        
+        Constructs a comprehensive view of direct and indirect package requirements,
+        including version information and impact metrics. Traverses the dependency
+        graph up to max_depth levels.
+        
+        Data structure returned:
+        {
+            'name': requirement file name,
+            'moment': analysis timestamp,
+            'require': {
+                'direct': [dependency entries],
+                'indirect': [transitive dependency entries]
+            },
+            'have': {
+                'package_name': [version entries with metrics]
+            }
+        }
+        
+        Args:
+            requirement_file_id: The requirement file element ID.
+            max_depth: Maximum traversal depth for the dependency graph.
+        
+        Returns:
+            Dictionary containing requirement graph data formatted for SMT analysis.
+            Returns empty dict if query fails or memory is exhausted.
+        
+        Raises:
+            MemoryOutException: If Neo4j memory pool exhausted or query timeout.
+            Neo4jError: If graph query fails.
+        """
         query = """
         MATCH (rf:RequirementFile)
         WHERE elementid(rf) = $requirement_file_id
@@ -94,7 +191,6 @@ class RequirementFileService:
             have: apoc.map.groupByMulti(apoc.coll.sortMaps(have, 'serial_number'), 'package')
         } As smt_info
         """
-        # ... resto de la función ...
         try:
             async with self.driver.session() as session:
                 record = await session.execute_read(
@@ -120,7 +216,37 @@ class RequirementFileService:
         requirement_file_id: str,
         max_depth: int
     ) -> dict[str, Any]:
-        # TODO: Add dynamic labels where Neo4j supports it with indexes
+        """Retrieves dependency graph data for supply chain context (SSC) analysis.
+        
+        Performs breadth-first graph expansion from a requirement file, collecting
+        direct dependencies (depth=1) and indirect dependencies (depth>1) with
+        version metadata and vulnerability counts.
+        
+        Data structure returned:
+        {
+            'direct_dependencies': [enriched package entries],
+            'total_direct_dependencies': int,
+            'indirect_dependencies_by_depth': {depth: [enriched package entries]},
+            'total_indirect_dependencies': int
+        }
+        
+        Args:
+            node_type: The package manager node type label (e.g., 'NPMPackage', 'MavenPackage').
+            requirement_file_id: The requirement file element ID.
+            max_depth: Maximum traversal depth for dependency graph discovery.
+        
+        Returns:
+            Dictionary with direct/indirect dependency breakdown and version information.
+            Returns empty dict if query fails or memory is exhausted.
+        
+        Raises:
+            MemoryOutException: If Neo4j memory pool exhausted or query timeout.
+            Neo4jError: If graph query fails.
+        
+        Note:
+            Uses APOC library functions for graph path expansion and dynamic label filtering.
+            Future enhancement: leverage native Neo4j label support when available.
+        """
         query = f"""
         MATCH (rf:RequirementFile)
         WHERE elementid(rf) = $requirement_file_id
@@ -205,6 +331,19 @@ class RequirementFileService:
         return {}
 
     async def update_requirement_rel_constraints(self, requirement_file_id: str, package_name: str, constraints: str) -> None:
+        """Updates version constraints for a package in a requirement file.
+        
+        Modifies the 'constraints' property on the REQUIRE relationship
+        between a requirement file and a package.
+        
+        Args:
+            requirement_file_id: The requirement file element ID.
+            package_name: The package name to update.
+            constraints: New version constraint specification.
+        
+        Raises:
+            Neo4jError: If graph update fails.
+        """
         query = """
         MATCH (rf:RequirementFile)
         WHERE elementid(rf) = $requirement_file_id
@@ -221,6 +360,14 @@ class RequirementFileService:
             )
 
     async def update_requirement_file_moment(self, requirement_file_id: str) -> None:
+        """Updates the analysis timestamp of a requirement file to the current time.
+        
+        Args:
+            requirement_file_id: The requirement file element ID.
+        
+        Raises:
+            Neo4jError: If graph update fails.
+        """
         query = """
         MATCH (rf: RequirementFile)
         WHERE elementid(rf) = $requirement_file_id
@@ -232,6 +379,18 @@ class RequirementFileService:
         )
 
     async def delete_requirement_file(self, repository_id: str, requirement_file_name: str) -> None:
+        """Deletes a requirement file and all its associated relationships and packages.
+        
+        Removes the USE relationship from the repository, and deletes the requirement file
+        along with all REQUIRE relationships to packages.
+        
+        Args:
+            repository_id: The repository element ID.
+            requirement_file_name: The name of the requirement file to delete.
+        
+        Raises:
+            Neo4jError: If graph deletion fails.
+        """
         query = """
         MATCH (r:Repository)
         WHERE elementid(r) = $repository_id
@@ -245,6 +404,17 @@ class RequirementFileService:
             )
 
     async def delete_requirement_file_rel(self, requirement_file_id: str, package_name: str) -> None:
+        """Deletes the REQUIRE relationship between a requirement file and a package.
+        
+        Removes the specific dependency relationship without deleting the package node.
+        
+        Args:
+            requirement_file_id: The requirement file element ID.
+            package_name: The package name to unlink.
+        
+        Raises:
+            Neo4jError: If graph deletion fails.
+        """
         query = """
         MATCH (rf:RequirementFile)
         WHERE elementid(rf) = $requirement_file_id

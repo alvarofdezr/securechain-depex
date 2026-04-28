@@ -9,7 +9,11 @@ from app.logger import logger
 
 class LogRequestMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        url = f"{request.url.path}?{request.query_params}" if request.query_params else request.url.path
+        url = (
+            f"{request.url.path}?{request.query_params}"
+            if request.query_params
+            else request.url.path
+        )
         start_time = time()
         response = await call_next(request)
         process_time = (time() - start_time) * 1000

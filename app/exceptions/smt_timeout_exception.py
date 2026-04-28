@@ -7,5 +7,8 @@ class SMTTimeoutException(HTTPException):
     def __init__(self):
         super().__init__(
             status_code=507,
-            detail={"code": ResponseCode.SMT_TIMEOUT, "message": ResponseMessage.SMT_TIMEOUT}
+            detail={
+                "code": ResponseCode.SMT_TIMEOUT,
+                "message": ResponseMessage.SMT_TIMEOUT,
+            },
         )

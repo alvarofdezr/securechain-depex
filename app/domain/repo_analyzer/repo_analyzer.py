@@ -46,7 +46,9 @@ class RepositoryAnalyzer:
             requirement_file_names = self.get_req_files_names(repository_path)
 
             for requirement_file_name in requirement_file_names:
-                analyzer = self.registry.get_analyzer(requirement_file_name, repository_path)
+                analyzer = self.registry.get_analyzer(
+                    requirement_file_name, repository_path
+                )
                 if analyzer:
                     requirement_files = await analyzer.analyze(
                         requirement_files, repository_path, requirement_file_name
@@ -109,10 +111,14 @@ class RepositoryAnalyzer:
             file_path = item.get("path", "")
             file_name = file_path.rsplit("/", 1)[-1]
 
-            if not any(extension in file_name for extension in FileTypes.ALL_REQUIREMENT_FILES):
+            if not any(
+                extension in file_name for extension in FileTypes.ALL_REQUIREMENT_FILES
+            ):
                 continue
 
-            raw_url = f"https://raw.githubusercontent.com/{owner}/{name}/HEAD/{file_path}"
+            raw_url = (
+                f"https://raw.githubusercontent.com/{owner}/{name}/HEAD/{file_path}"
+            )
             async with session.get(raw_url) as file_resp:
                 if file_resp.status != 200:
                     continue
@@ -152,5 +158,6 @@ class RepositoryAnalyzer:
             bool: True if the file is a recognized requirement file, False otherwise.
         """
         return any(
-            extension in requirement_file_name for extension in FileTypes.ALL_REQUIREMENT_FILES
+            extension in requirement_file_name
+            for extension in FileTypes.ALL_REQUIREMENT_FILES
         )

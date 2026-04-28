@@ -37,7 +37,9 @@ class RequirementFileAnalyzer(ABC):
         return filename.replace("/master/", "").replace("/main/", "")
 
     def normalize_version(self, version: str) -> str:
-        if version.count(".") == 2 and not any(op in version for op in ["<", ">", "=", "!", "~"]):
+        if version.count(".") == 2 and not any(
+            op in version for op in ["<", ">", "=", "!", "~"]
+        ):
             return f"== {version}"
         return version
 
@@ -57,20 +59,20 @@ class RequirementFileAnalyzer(ABC):
             minor_ver = int(minor) if minor else 0
 
             if major_ver < 3:
-                if operator.startswith('>'):
+                if operator.startswith(">"):
                     continue
                 return False
 
             if major_ver == 3:
-                if operator == '==':
+                if operator == "==":
                     return (major_ver, minor_ver) >= (min_major, min_minor)
-                elif operator.startswith('>='):
+                elif operator.startswith(">="):
                     return True
-                elif operator.startswith('>'):
+                elif operator.startswith(">"):
                     return (min_major, min_minor) > (major_ver, minor_ver)
-                elif operator.startswith('<='):
+                elif operator.startswith("<="):
                     return True
-                elif operator.startswith('<'):
+                elif operator.startswith("<"):
                     return (major_ver, minor_ver) > (min_major, min_minor)
 
         return True
@@ -93,8 +95,7 @@ class RequirementFileAnalyzer(ABC):
     @staticmethod
     def clean_dependency_name(dependency_name: str) -> str:
         cleaned = (
-            dependency_name
-            .replace("(", "")
+            dependency_name.replace("(", "")
             .replace(")", "")
             .replace(" ", "")
             .replace("'", "")

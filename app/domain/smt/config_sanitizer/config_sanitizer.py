@@ -15,7 +15,9 @@ class ConfigSanitizer:
             cls.version_service = container.get_version_service()
         return cls.instance
 
-    async def sanitize(self, node_type: str, config: ModelRef) -> dict[str, str | float]:
+    async def sanitize(
+        self, node_type: str, config: ModelRef
+    ) -> dict[str, str | float]:
         impact_config: dict[str, float] = {}
         version_config: dict[str, int] = {}
         impact_vars: dict[str, float] = {}
@@ -34,7 +36,11 @@ class ConfigSanitizer:
         self.process_impact_variables(impact_config, impact_vars)
 
         assert self.version_service is not None
-        final_version_config = await self.version_service.read_releases_by_serial_numbers(node_type, version_config)
+        final_version_config = (
+            await self.version_service.read_releases_by_serial_numbers(
+                node_type, version_config
+            )
+        )
 
         return {**final_version_config, **impact_config}
 
@@ -48,9 +54,7 @@ class ConfigSanitizer:
         value = config[var]
 
         if isinstance(value, RatNumRef):
-            return round(
-                value.numerator_as_long() / value.denominator_as_long(), 2
-            )
+            return round(value.numerator_as_long() / value.denominator_as_long(), 2)
 
         if isinstance(value, IntNumRef):
             value = value.as_long()
@@ -62,8 +66,7 @@ class ConfigSanitizer:
 
     @staticmethod
     def process_impact_variables(
-        impact_config: dict[str, float],
-        impact_vars: dict[str, float]
+        impact_config: dict[str, float], impact_vars: dict[str, float]
     ) -> None:
         for impact_var, impact_value in impact_vars.items():
             base_var = impact_var.replace("impact_", "")

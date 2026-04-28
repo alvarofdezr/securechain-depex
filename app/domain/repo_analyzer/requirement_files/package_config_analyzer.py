@@ -15,9 +15,8 @@ class PackageConfigAnalyzer(RequirementFileAnalyzer):
             name = package.get("id")
             version = package.get("version")
             if name and version:
-                if (
-                    version.count(".") == 2
-                    and not any(op in version for op in ["<", ">", "="])
+                if version.count(".") == 2 and not any(
+                    op in version for op in ["<", ">", "="]
                 ):
                     packages[name] = f"== {version}"
                 else:

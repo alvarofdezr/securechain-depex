@@ -7,5 +7,5 @@ class ExpandReqFileRequest(BaseModel):
     requirement_file_id: str = Field(
         ...,
         pattern=NEO4J_ID_PATTERN,
-        description="Requirement file ID following the Neo4j ID pattern"
+        description="Requirement file ID following the Neo4j ID pattern",
     )

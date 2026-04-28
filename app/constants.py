@@ -10,18 +10,35 @@ from typing import ClassVar
 class FileTypes:
     """Defines supported requirement file names categorized by ecosystem."""
 
-    PYPI: ClassVar[list[str]] = ["pyproject.toml", "setup.cfg", "setup.py", "requirements.txt"]
+    PYPI: ClassVar[list[str]] = [
+        "pyproject.toml",
+        "setup.cfg",
+        "setup.py",
+        "requirements.txt",
+    ]
     NPM: ClassVar[list[str]] = ["package.json", "package-lock.json"]
     MAVEN: ClassVar[list[str]] = ["pom.xml"]
     NUGET: ClassVar[list[str]] = ["packages.config"]
     RUBY: ClassVar[list[str]] = ["Gemfile", "Gemfile.lock"]
     CARGO: ClassVar[list[str]] = ["Cargo.toml", "Cargo.lock"]
     GO: ClassVar[list[str]] = ["go.mod"]
-    SBOM: ClassVar[list[str]] = ["bom.json", "bom.xml", "sbom.json", "sbom.xml", ".cyclonedx.json", ".cyclonedx.xml", ".cdx.json", ".cdx.xml", ".spdx.json", ".spdx.xml"]
+    SBOM: ClassVar[list[str]] = [
+        "bom.json",
+        "bom.xml",
+        "sbom.json",
+        "sbom.xml",
+        ".cyclonedx.json",
+        ".cyclonedx.xml",
+        ".cdx.json",
+        ".cdx.xml",
+        ".spdx.json",
+        ".spdx.xml",
+    ]
 
     ALL_REQUIREMENT_FILES: ClassVar[set[str]] = set(
         PYPI + NPM + MAVEN + NUGET + RUBY + CARGO + GO + SBOM
     )
+
 
 class PurlTypeToManager:
     """Maps Package URL (PURL) types to package manager names."""
@@ -35,6 +52,7 @@ class PurlTypeToManager:
         "gem": "RubyGems",
         "golang": "Go",
     }
+
 
 class ResponseCode:
     """Defines standardized response codes for API responses."""
@@ -123,14 +141,22 @@ class ResponseMessage:
     NO_DEPENDENCIES_PACKAGE = "The package has no dependencies"
     NO_DEPENDENCIES_VERSION = "The package version has no dependencies"
     REPOSITORY_PROCESSING = "The repository is already being processed"
-    REQ_FILE_EXPANSION_RETRIEVED_SUCCESS = "Requirement file expansion data retrieved successfully"
-    PACKAGE_EXPANSION_RETRIEVED_SUCCESS = "Package expansion data retrieved successfully"
-    VERSION_EXPANSION_RETRIEVED_SUCCESS = "Version expansion data retrieved successfully"
+    REQ_FILE_EXPANSION_RETRIEVED_SUCCESS = (
+        "Requirement file expansion data retrieved successfully"
+    )
+    PACKAGE_EXPANSION_RETRIEVED_SUCCESS = (
+        "Package expansion data retrieved successfully"
+    )
+    VERSION_EXPANSION_RETRIEVED_SUCCESS = (
+        "Version expansion data retrieved successfully"
+    )
 
     # Not found errors
     REQ_FILE_NOT_FOUND = "The requested requirement file was not found"
     PACKAGE_NOT_FOUND = "The requested package was not found"
-    VERSION_NOT_FOUND = "The requested version was not found, or don't have dependencies"
+    VERSION_NOT_FOUND = (
+        "The requested version was not found, or don't have dependencies"
+    )
 
     # Error messages - General
     VALIDATION_ERROR = "Validation error"

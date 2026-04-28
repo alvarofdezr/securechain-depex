@@ -9,6 +9,8 @@ class DateNotFoundException(HTTPException):
             status_code=404,
             detail={
                 "code": ResponseCode.DATE_NOT_FOUND,
-                "message": ResponseMessage.DATE_NOT_FOUND.format(name=name, owner=owner)
-            }
+                "message": ResponseMessage.DATE_NOT_FOUND.format(
+                    name=name, owner=owner
+                ),
+            },
         )

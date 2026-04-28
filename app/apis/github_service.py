@@ -48,11 +48,7 @@ class GitHubService:
         if not repo or not repo.get("defaultBranchRef"):
             raise InvalidRepositoryException(owner, name)
 
-        date_str = (
-            repo["defaultBranchRef"]
-            .get("target", {})
-            .get("committedDate")
-        )
+        date_str = repo["defaultBranchRef"].get("target", {}).get("committedDate")
         if not date_str:
             raise DateNotFoundException(owner, name)
 

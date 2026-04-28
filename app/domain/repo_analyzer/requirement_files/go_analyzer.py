@@ -144,13 +144,15 @@ class GoAnalyzer(RequirementFileAnalyzer):
         """
         dependencies: dict[str, str] = {}
 
-        pattern = r"^\s*(?:require\s+)?([a-zA-Z0-9\.\-\/]+)\s+(v[0-9\.]+[\-[a-zA-Z0-9\.]*]*)"
+        pattern = (
+            r"^\s*(?:require\s+)?([a-zA-Z0-9\.\-\/]+)\s+(v[0-9\.]+[\-[a-zA-Z0-9\.]*]*)"
+        )
 
-        lines = content.split('\n')
+        lines = content.split("\n")
         for line in lines:
             line = line.strip()
 
-            if not line or line.startswith(('module', 'go', ')', '//')):
+            if not line or line.startswith(("module", "go", ")", "//")):
                 continue
 
             if line == "require (":

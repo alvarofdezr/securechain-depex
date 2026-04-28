@@ -17,6 +17,7 @@ DESCRIPTION = """
 Depex is a tool that allows you to reason over the entire configuration space of the Software Supply Chain of an open-source software repository.
 """
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     db_manager = DatabaseManager()
@@ -25,6 +26,7 @@ async def lifespan(app: FastAPI):
     await db_manager.close()
     http_session = get_http_session()
     await http_session.close()
+
 
 app = FastAPI(
     title="Secure Chain Depex Tool",
@@ -40,7 +42,7 @@ app = FastAPI(
         "name": "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
         "url": "https://www.gnu.org/licenses/gpl-3.0.html",
     },
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 app.state.limiter = limiter
@@ -53,7 +55,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.add_exception_handler(RequestValidationError, ExceptionHandler.request_validation_exception_handler)
+app.add_exception_handler(
+    RequestValidationError, ExceptionHandler.request_validation_exception_handler
+)
 app.add_exception_handler(HTTPException, ExceptionHandler.http_exception_handler)
 app.add_exception_handler(Exception, ExceptionHandler.unhandled_exception_handler)
 

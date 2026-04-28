@@ -8,12 +8,13 @@ from app.utils import JSONEncoder
 
 router = APIRouter()
 
+
 @router.get(
     "/health",
     summary="Health Check",
     description="Check the status of the API.",
     response_description="API status.",
-    tags=["Secure Chain Depex - Health"]
+    tags=["Secure Chain Depex - Health"],
 )
 @limiter.limit("25/minute")
 async def health_check(
@@ -21,10 +22,11 @@ async def health_check(
     json_encoder: JSONEncoder = Depends(get_json_encoder),
 ):
     return JSONResponse(
-        status_code=status.HTTP_200_OK, content=json_encoder.encode(
+        status_code=status.HTTP_200_OK,
+        content=json_encoder.encode(
             {
                 "code": ResponseCode.HEALTHY,
                 "message": ResponseMessage.HEALTHY,
             }
-        )
+        ),
     )

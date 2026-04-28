@@ -65,7 +65,9 @@ class DatabaseManager:
     def get_operation_results_collection(self) -> AsyncCollection:
         if self.securechain_db is None:
             raise RuntimeError("Database not initialized. Call initialize() first.")
-        return self.securechain_db.get_collection(settings.DB_OPERATION_RESULT_COLLECTION)
+        return self.securechain_db.get_collection(
+            settings.DB_OPERATION_RESULT_COLLECTION
+        )
 
     def get_api_keys_collection(self) -> AsyncCollection:
         if self.securechain_db is None:

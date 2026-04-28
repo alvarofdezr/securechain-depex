@@ -14,9 +14,8 @@ class GemfileLockAnalyzer(RequirementFileAnalyzer):
             gem_pattern = compile(r"\s+(\S+)\s+\(([^)]+)\)")
             matches = gem_pattern.findall(gemfile_content)
             for gem, version in matches:
-                if (
-                    version.count(".") == 2
-                    and not any(op in version for op in ["<", ">", "="])
+                if version.count(".") == 2 and not any(
+                    op in version for op in ["<", ">", "="]
                 ):
                     packages[gem] = f"= {version}"
                 else:

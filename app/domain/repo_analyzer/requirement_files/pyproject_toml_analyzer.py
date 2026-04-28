@@ -19,13 +19,20 @@ class PyprojectTomlAnalyzer(RequirementFileAnalyzer):
                     continue
 
                 if "[" in dependency[0]:
-                    pos_1 = PyPiConstraintParser.get_first_op_position(dependency[0], ["["])
-                    pos_2 = PyPiConstraintParser.get_first_op_position(dependency[0], ["]"]) + 1
+                    pos_1 = PyPiConstraintParser.get_first_op_position(
+                        dependency[0], ["["]
+                    )
+                    pos_2 = (
+                        PyPiConstraintParser.get_first_op_position(dependency[0], ["]"])
+                        + 1
+                    )
                     dependency[0] = dependency[0][:pos_1] + dependency[0][pos_2:]
 
                 dependency = self.clean_dependency_name(dependency[0])
-                pos = PyPiConstraintParser.get_first_op_position(dependency, ["<", ">", "=", "!", "~"])
-                packages[dependency[:pos].lower()] = PyPiConstraintParser.parse_pypi_constraints(
-                    dependency[pos:]
+                pos = PyPiConstraintParser.get_first_op_position(
+                    dependency, ["<", ">", "=", "!", "~"]
+                )
+                packages[dependency[:pos].lower()] = (
+                    PyPiConstraintParser.parse_pypi_constraints(dependency[pos:])
                 )
         return packages

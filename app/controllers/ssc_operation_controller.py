@@ -25,46 +25,62 @@ from app.utils import JSONEncoder, VersionFilter
 
 router = APIRouter()
 
+
 @router.post(
     "/operation/ssc/file_info",
     summary="Get Requirement File Information",
     description="Retrieve information about dependnecy graph of a specific requirement file.",
     response_description="Requirement File information.",
     dependencies=[Depends(get_dual_auth_bearer())],
-    tags=["Secure Chain Depex - Operation/SSC"]
+    tags=["Secure Chain Depex - Operation/SSC"],
 )
 @limiter.limit("5/minute")
 async def requirement_file_info(
     request: Request,
     file_info_request: Annotated[FileInfoRequest, Body()],
-    requirement_file_service: RequirementFileService = Depends(get_requirement_file_service),
+    requirement_file_service: RequirementFileService = Depends(
+        get_requirement_file_service
+    ),
     operation_service: OperationService = Depends(get_operation_service),
     json_encoder: JSONEncoder = Depends(get_json_encoder),
 ) -> JSONResponse:
     operation_result_id = f"{file_info_request.node_type.value}:{file_info_request.requirement_file_id}:{file_info_request.max_depth}"
-    operation_result = await operation_service.read_operation_result(operation_result_id)
-    req_file_moment = await requirement_file_service.read_requirement_file_moment(file_info_request.requirement_file_id)
-    if req_file_moment and operation_result and operation_result["moment"].replace(tzinfo=UTC) > req_file_moment.replace(tzinfo=UTC):
+    operation_result = await operation_service.read_operation_result(
+        operation_result_id
+    )
+    req_file_moment = await requirement_file_service.read_requirement_file_moment(
+        file_info_request.requirement_file_id
+    )
+    if (
+        req_file_moment
+        and operation_result
+        and operation_result["moment"].replace(tzinfo=UTC)
+        > req_file_moment.replace(tzinfo=UTC)
+    ):
         result = operation_result.get("result")
     else:
-        result = await requirement_file_service.read_graph_for_req_file_ssc_info_operation(
-            file_info_request.node_type.value,
-            file_info_request.requirement_file_id,
-            file_info_request.max_depth
+        result = (
+            await requirement_file_service.read_graph_for_req_file_ssc_info_operation(
+                file_info_request.node_type.value,
+                file_info_request.requirement_file_id,
+                file_info_request.max_depth,
+            )
         )
         if result["total_direct_dependencies"] != 0:
             for direct_package in result["direct_dependencies"]:
                 direct_package["versions"] = VersionFilter.filter_versions(
                     file_info_request.node_type.value,
                     direct_package["versions"],
-                    direct_package["package_constraints"]
+                    direct_package["package_constraints"],
                 )
-            for _, indirect_packages in result["indirect_dependencies_by_depth"].items():
+            for _, indirect_packages in result[
+                "indirect_dependencies_by_depth"
+            ].items():
                 for indirect_package in indirect_packages:
                     indirect_package["versions"] = VersionFilter.filter_versions(
                         file_info_request.node_type.value,
                         indirect_package["versions"],
-                        indirect_package["package_constraints"]
+                        indirect_package["package_constraints"],
                     )
         else:
             return JSONResponse(
@@ -78,13 +94,14 @@ async def requirement_file_info(
             )
         await operation_service.replace_operation_result(operation_result_id, result)
     return JSONResponse(
-        status_code=status.HTTP_200_OK, content=json_encoder.encode(
+        status_code=status.HTTP_200_OK,
+        content=json_encoder.encode(
             {
                 "code": ResponseCode.FILE_INFO_SUCCESS,
                 "message": ResponseMessage.FILE_INFO_SUCCESS,
-                "data": result
+                "data": result,
             }
-        )
+        ),
     )
 
 
@@ -94,7 +111,7 @@ async def requirement_file_info(
     description="Retrieve information about the software supply chain of a specific package.",
     response_description="SSC package information.",
     dependencies=[Depends(get_dual_auth_bearer())],
-    tags=["Secure Chain Depex - Operation/SSC"]
+    tags=["Secure Chain Depex - Operation/SSC"],
 )
 @limiter.limit("5/minute")
 async def package_ssc_info(
@@ -105,28 +122,32 @@ async def package_ssc_info(
     json_encoder: JSONEncoder = Depends(get_json_encoder),
 ) -> JSONResponse:
     operation_result_id = f"{package_info_request.node_type.value}:{package_info_request.package_name}:{package_info_request.max_depth}"
-    operation_result = await operation_service.read_operation_result(operation_result_id)
+    operation_result = await operation_service.read_operation_result(
+        operation_result_id
+    )
     if operation_result is not None:
         result = operation_result.get("result")
     else:
         result = await package_service.read_graph_for_package_ssc_info_operation(
             package_info_request.node_type.value,
             package_info_request.package_name,
-            package_info_request.max_depth
+            package_info_request.max_depth,
         )
         if result["total_direct_dependencies"] != 0:
             for direct_package in result["direct_dependencies"]:
                 direct_package["versions"] = VersionFilter.filter_versions(
                     package_info_request.node_type.value,
                     direct_package["versions"],
-                    direct_package["package_constraints"]
+                    direct_package["package_constraints"],
                 )
-            for _, indirect_packages in result["indirect_dependencies_by_depth"].items():
+            for _, indirect_packages in result[
+                "indirect_dependencies_by_depth"
+            ].items():
                 for indirect_package in indirect_packages:
                     indirect_package["versions"] = VersionFilter.filter_versions(
                         package_info_request.node_type.value,
                         indirect_package["versions"],
-                        indirect_package["package_constraints"]
+                        indirect_package["package_constraints"],
                     )
         else:
             return JSONResponse(
@@ -140,13 +161,14 @@ async def package_ssc_info(
             )
         await operation_service.replace_operation_result(operation_result_id, result)
     return JSONResponse(
-        status_code=status.HTTP_200_OK, content=json_encoder.encode(
+        status_code=status.HTTP_200_OK,
+        content=json_encoder.encode(
             {
                 "code": ResponseCode.PACKAGE_INFO_SUCCESS,
                 "message": ResponseMessage.PACKAGE_INFO_SUCCESS,
-                "data": result
+                "data": result,
             }
-        )
+        ),
     )
 
 
@@ -156,7 +178,7 @@ async def package_ssc_info(
     description="Retrieve information about the software supply chain of a specific package version.",
     response_description="SSC package version information.",
     dependencies=[Depends(get_dual_auth_bearer())],
-    tags=["Secure Chain Depex - Operation/SSC"]
+    tags=["Secure Chain Depex - Operation/SSC"],
 )
 @limiter.limit("5/minute")
 async def version_ssc_info(
@@ -167,7 +189,9 @@ async def version_ssc_info(
     json_encoder: JSONEncoder = Depends(get_json_encoder),
 ) -> JSONResponse:
     operation_result_id = f"{version_info_request.node_type.value}:{version_info_request.package_name}:{version_info_request.version_name}:{version_info_request.max_depth}"
-    operation_result = await operation_service.read_operation_result(operation_result_id)
+    operation_result = await operation_service.read_operation_result(
+        operation_result_id
+    )
     if operation_result is not None:
         result = operation_result.get("result")
     else:
@@ -175,21 +199,23 @@ async def version_ssc_info(
             version_info_request.node_type.value,
             version_info_request.package_name,
             version_info_request.version_name,
-            version_info_request.max_depth
+            version_info_request.max_depth,
         )
         if result["total_direct_dependencies"] != 0:
             for direct_package in result["direct_dependencies"]:
                 direct_package["versions"] = VersionFilter.filter_versions(
                     version_info_request.node_type.value,
                     direct_package["versions"],
-                    direct_package["package_constraints"]
+                    direct_package["package_constraints"],
                 )
-            for _, indirect_packages in result["indirect_dependencies_by_depth"].items():
+            for _, indirect_packages in result[
+                "indirect_dependencies_by_depth"
+            ].items():
                 for indirect_package in indirect_packages:
                     indirect_package["versions"] = VersionFilter.filter_versions(
                         version_info_request.node_type.value,
                         indirect_package["versions"],
-                        indirect_package["package_constraints"]
+                        indirect_package["package_constraints"],
                     )
         else:
             return JSONResponse(
@@ -203,11 +229,12 @@ async def version_ssc_info(
             )
         await operation_service.replace_operation_result(operation_result_id, result)
     return JSONResponse(
-        status_code=status.HTTP_200_OK, content=json_encoder.encode(
+        status_code=status.HTTP_200_OK,
+        content=json_encoder.encode(
             {
                 "code": ResponseCode.VERSION_INFO_SUCCESS,
                 "message": ResponseMessage.VERSION_INFO_SUCCESS,
-                "data": result
+                "data": result,
             }
-        )
+        ),
     )

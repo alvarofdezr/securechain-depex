@@ -39,5 +39,5 @@ __all__ = [
     "PackageMessageSchema",
     "ValidConfigRequest",
     "ValidGraphRequest",
-    "VersionInfoRequest"
+    "VersionInfoRequest",
 ]

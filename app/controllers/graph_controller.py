@@ -33,12 +33,13 @@ from app.utils import JSONEncoder, RedisQueue
 
 router = APIRouter()
 
+
 @router.get(
     "/graph/repositories",
     summary="Get User Repositories",
     description="Retrieve a list of repositories for the authenticated user.",
     response_description="List of user repositories.",
-    tags=["Secure Chain Depex - Graph"]
+    tags=["Secure Chain Depex - Graph"],
 )
 @limiter.limit("25/minute")
 async def get_repositories(
@@ -49,11 +50,16 @@ async def get_repositories(
 ) -> JSONResponse:
     user_id = payload.get("user_id", "")
     repositories = await repository_service.read_repositories_by_user_id(user_id)
-    return JSONResponse(status_code=status.HTTP_200_OK, content=json_encoder.encode({
-        "code": ResponseCode.GET_REPOSITORIES_SUCCESS,
-        "message": ResponseMessage.REPOSITORIES_RETRIEVED_SUCCESS,
-        "data": repositories
-    }))
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content=json_encoder.encode(
+            {
+                "code": ResponseCode.GET_REPOSITORIES_SUCCESS,
+                "message": ResponseMessage.REPOSITORIES_RETRIEVED_SUCCESS,
+                "data": repositories,
+            }
+        ),
+    )
 
 
 @router.get(
@@ -62,7 +68,7 @@ async def get_repositories(
     description="Retrieve the status of a specific package.",
     response_description="Package status.",
     dependencies=[Depends(get_dual_auth_bearer())],
-    tags=["Secure Chain Depex - Graph"]
+    tags=["Secure Chain Depex - Graph"],
 )
 @limiter.limit("25/minute")
 async def get_package_status(
@@ -71,7 +77,10 @@ async def get_package_status(
     package_service: PackageService = Depends(get_package_service),
     json_encoder: JSONEncoder = Depends(get_json_encoder),
 ) -> JSONResponse:
-    package = await package_service.read_package_status_by_name(get_package_status_request.node_type.value, get_package_status_request.package_name)
+    package = await package_service.read_package_status_by_name(
+        get_package_status_request.node_type.value,
+        get_package_status_request.package_name,
+    )
     if not package:
         return JSONResponse(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -84,11 +93,13 @@ async def get_package_status(
         )
     return JSONResponse(
         status_code=status.HTTP_200_OK,
-        content=json_encoder.encode({
-            "code": ResponseCode.GET_PACKAGE_STATUS_SUCCESS,
-            "message": ResponseMessage.PACKAGE_STATUS_RETRIEVED_SUCCESS,
-            "data": package
-        })
+        content=json_encoder.encode(
+            {
+                "code": ResponseCode.GET_PACKAGE_STATUS_SUCCESS,
+                "message": ResponseMessage.PACKAGE_STATUS_RETRIEVED_SUCCESS,
+                "data": package,
+            }
+        ),
     )
 
 
@@ -98,7 +109,7 @@ async def get_package_status(
     description="Retrieve the status of a specific version.",
     response_description="Version status.",
     dependencies=[Depends(get_dual_auth_bearer())],
-    tags=["Secure Chain Depex - Graph"]
+    tags=["Secure Chain Depex - Graph"],
 )
 @limiter.limit("25/minute")
 async def get_version_status(
@@ -110,7 +121,7 @@ async def get_version_status(
     version = await package_service.read_version_status_by_package_and_name(
         get_version_status_request.node_type.value,
         get_version_status_request.package_name,
-        get_version_status_request.version_name
+        get_version_status_request.version_name,
     )
     if not version:
         return JSONResponse(
@@ -124,11 +135,13 @@ async def get_version_status(
         )
     return JSONResponse(
         status_code=status.HTTP_200_OK,
-        content=json_encoder.encode({
-            "code": ResponseCode.GET_VERSION_STATUS_SUCCESS,
-            "message": ResponseMessage.VERSION_STATUS_RETRIEVED_SUCCESS,
-            "data": version
-        }),
+        content=json_encoder.encode(
+            {
+                "code": ResponseCode.GET_VERSION_STATUS_SUCCESS,
+                "message": ResponseMessage.VERSION_STATUS_RETRIEVED_SUCCESS,
+                "data": version,
+            }
+        ),
     )
 
 
@@ -138,7 +151,7 @@ async def get_version_status(
     description="Queue a package for extraction and analysis. The package will be processed asynchronously by Dagster.",
     response_description="Package queuing status.",
     dependencies=[Depends(get_dual_auth_bearer())],
-    tags=["Secure Chain Depex - Graph"]
+    tags=["Secure Chain Depex - Graph"],
 )
 @limiter.limit("25/minute")
 async def init_package(
@@ -162,10 +175,12 @@ async def init_package(
 
     return JSONResponse(
         status_code=status.HTTP_202_ACCEPTED,
-        content=json_encoder.encode({
-            "code": ResponseCode.PACKAGE_QUEUED_FOR_PROCESSING,
-            "message": ResponseMessage.PACKAGE_QUEUED,
-        }),
+        content=json_encoder.encode(
+            {
+                "code": ResponseCode.PACKAGE_QUEUED_FOR_PROCESSING,
+                "message": ResponseMessage.PACKAGE_QUEUED,
+            }
+        ),
     )
 
 
@@ -174,7 +189,7 @@ async def init_package(
     summary="Initialize Repository",
     description="Initialize a repository by creating it in the graph and queuing its packages for extraction.",
     response_description="Repository initialization status.",
-    tags=["Secure Chain Depex - Graph"]
+    tags=["Secure Chain Depex - Graph"],
 )
 @limiter.limit("25/minute")
 async def init_repository(
@@ -189,13 +204,11 @@ async def init_repository(
     user_id = payload.get("user_id", "")
 
     last_commit_date = await github_service.get_last_commit_date(
-        init_repository_request.owner,
-        init_repository_request.name
+        init_repository_request.owner, init_repository_request.name
     )
 
     repository = await repository_service.read_repository_by_owner_and_name(
-        init_repository_request.owner,
-        init_repository_request.name
+        init_repository_request.owner, init_repository_request.name
     )
 
     if repository is None or repository["is_complete"]:
@@ -210,25 +223,28 @@ async def init_repository(
 
         return JSONResponse(
             status_code=status.HTTP_202_ACCEPTED,
-            content=json_encoder.encode({
-                "code": ResponseCode.REPOSITORY_QUEUED_FOR_PROCESSING,
-                "message": ResponseMessage.REPOSITORY_QUEUED,
-                "data": {
-                    "repository": f"{init_repository_request.owner}/{init_repository_request.name}"
+            content=json_encoder.encode(
+                {
+                    "code": ResponseCode.REPOSITORY_QUEUED_FOR_PROCESSING,
+                    "message": ResponseMessage.REPOSITORY_QUEUED,
+                    "data": {
+                        "repository": f"{init_repository_request.owner}/{init_repository_request.name}"
+                    },
                 }
-            }),
+            ),
         )
     else:
         return JSONResponse(
             status_code=status.HTTP_409_CONFLICT,
-            content=json_encoder.encode({
-                "code": ResponseCode.REPOSITORY_PROCESSING_IN_PROGRESS,
-                "message": ResponseMessage.REPOSITORY_PROCESSING,
-                "data": {
-                    "repository_id": repository["id"]
+            content=json_encoder.encode(
+                {
+                    "code": ResponseCode.REPOSITORY_PROCESSING_IN_PROGRESS,
+                    "message": ResponseMessage.REPOSITORY_PROCESSING,
+                    "data": {"repository_id": repository["id"]},
                 }
-            }),
+            ),
         )
+
 
 @router.get(
     "/graph/expand/req_file",
@@ -236,7 +252,7 @@ async def init_repository(
     description="Return requirement file info to expand its versions in the graph visualization.",
     response_description="Requirement file expansion data.",
     dependencies=[Depends(get_dual_auth_bearer())],
-    tags=["Secure Chain Depex - Graph"]
+    tags=["Secure Chain Depex - Graph"],
 )
 @limiter.limit("25/minute")
 async def expand_req_file(
@@ -260,12 +276,15 @@ async def expand_req_file(
         )
     return JSONResponse(
         status_code=status.HTTP_200_OK,
-        content=json_encoder.encode({
-            "code": ResponseCode.EXPAND_REQ_FILE_SUCCESS,
-            "message": ResponseMessage.REQ_FILE_EXPANSION_RETRIEVED_SUCCESS,
-            "data": expansion_data
-        })
+        content=json_encoder.encode(
+            {
+                "code": ResponseCode.EXPAND_REQ_FILE_SUCCESS,
+                "message": ResponseMessage.REQ_FILE_EXPANSION_RETRIEVED_SUCCESS,
+                "data": expansion_data,
+            }
+        ),
     )
+
 
 @router.get(
     "/graph/expand/package",
@@ -273,7 +292,7 @@ async def expand_req_file(
     description="Return package info to expand its versions in the graph visualization.",
     response_description="Package expansion data.",
     dependencies=[Depends(get_dual_auth_bearer())],
-    tags=["Secure Chain Depex - Graph"]
+    tags=["Secure Chain Depex - Graph"],
 )
 @limiter.limit("25/minute")
 async def expand_package(
@@ -285,7 +304,7 @@ async def expand_package(
     expansion_data = await version_service.read_versions_expansion_by_package(
         expand_package_request.node_type.value,
         expand_package_request.package_purl,
-        expand_package_request.constraints
+        expand_package_request.constraints,
     )
     if expansion_data is None:
         return JSONResponse(
@@ -299,12 +318,15 @@ async def expand_package(
         )
     return JSONResponse(
         status_code=status.HTTP_200_OK,
-        content=json_encoder.encode({
-            "code": ResponseCode.EXPAND_PACKAGE_SUCCESS,
-            "message": ResponseMessage.PACKAGE_EXPANSION_RETRIEVED_SUCCESS,
-            "data": expansion_data
-        })
+        content=json_encoder.encode(
+            {
+                "code": ResponseCode.EXPAND_PACKAGE_SUCCESS,
+                "message": ResponseMessage.PACKAGE_EXPANSION_RETRIEVED_SUCCESS,
+                "data": expansion_data,
+            }
+        ),
     )
+
 
 @router.get(
     "/graph/expand/version",
@@ -312,7 +334,7 @@ async def expand_package(
     description="Return version info to expand its dependencies in the graph visualization.",
     response_description="Version expansion data.",
     dependencies=[Depends(get_dual_auth_bearer())],
-    tags=["Secure Chain Depex - Graph"]
+    tags=["Secure Chain Depex - Graph"],
 )
 @limiter.limit("25/minute")
 async def expand_version(
@@ -336,10 +358,11 @@ async def expand_version(
         )
     return JSONResponse(
         status_code=status.HTTP_200_OK,
-        content=json_encoder.encode({
-            "code": ResponseCode.EXPAND_VERSION_SUCCESS,
-            "message": ResponseMessage.VERSION_EXPANSION_RETRIEVED_SUCCESS,
-            "data": expansion_data
-        })
+        content=json_encoder.encode(
+            {
+                "code": ResponseCode.EXPAND_VERSION_SUCCESS,
+                "message": ResponseMessage.VERSION_EXPANSION_RETRIEVED_SUCCESS,
+                "data": expansion_data,
+            }
+        ),
     )
-

@@ -17,5 +17,5 @@ __all__ = [
     "PackageInfoRequest",
     "ValidConfigRequest",
     "ValidGraphRequest",
-    "VersionInfoRequest"
+    "VersionInfoRequest",
 ]

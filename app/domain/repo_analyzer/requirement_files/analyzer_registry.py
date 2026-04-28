@@ -9,13 +9,13 @@ from .cargo_toml_analyzer import CargoTomlAnalyzer
 from .cyclonedx_sbom_analyzer import CycloneDxSbomAnalyzer
 from .gemfile_analyzer import GemfileAnalyzer
 from .gemfile_lock_analyzer import GemfileLockAnalyzer
+from .go_analyzer import GoAnalyzer
 from .package_config_analyzer import PackageConfigAnalyzer
 from .package_json_analyzer import PackageJsonAnalyzer
 from .package_lock_json_analyzer import PackageLockJsonAnalyzer
 from .pom_xml_analyzer import PomXmlAnalyzer
 from .pyproject_toml_analyzer import PyprojectTomlAnalyzer
 from .requirements_txt_analyzer import RequirementsTxtAnalyzer
-from .go_analyzer import GoAnalyzer
 from .setup_cfg_analyzer import SetupCfgAnalyzer
 from .setup_py_analyzer import SetupPyAnalyzer
 from .spdx_sbom_analyzer import SpdxSbomAnalyzer
@@ -28,10 +28,10 @@ class AnalyzerRegistry:
     strategy based on file names, extensions, or file content (e.g., for SBOMs).
     """
 
-    instance: ClassVar['AnalyzerRegistry | None'] = None
+    instance: ClassVar[AnalyzerRegistry | None] = None
     analyzers: dict[str, RequirementFileAnalyzer]
 
-    def __new__(cls) -> 'AnalyzerRegistry':
+    def __new__(cls) -> AnalyzerRegistry:
         """Creates or returns the singleton instance of the AnalyzerRegistry.
 
         Returns:
@@ -62,7 +62,9 @@ class AnalyzerRegistry:
             "setup.py": SetupPyAnalyzer(),
         }
 
-    def get_analyzer(self, filename: str, repository_path: str) -> RequirementFileAnalyzer | None:
+    def get_analyzer(
+        self, filename: str, repository_path: str
+    ) -> RequirementFileAnalyzer | None:
         """Retrieves the appropriate analyzer for a given filename.
 
         Uses exact matching first, then falls back to heuristic matching for
@@ -89,7 +91,11 @@ class AnalyzerRegistry:
         if "gemfile" in file_lower and not file_basename.endswith((".lock", ".txt")):
             return self.analyzers.get("Gemfile")
 
-        if "package" in file_lower and file_basename.endswith(".json") and "lock" not in file_lower:
+        if (
+            "package" in file_lower
+            and file_basename.endswith(".json")
+            and "lock" not in file_lower
+        ):
             return self.analyzers.get("package.json")
 
         if "package-lock" in file_lower and file_basename.endswith(".json"):
@@ -113,11 +119,11 @@ class AnalyzerRegistry:
         """
         file_lower = filename.lower()
         return (
-            "sbom" in file_lower or
-            "bom" in file_lower or
-            "cyclonedx" in file_lower or
-            "cdx" in file_lower or
-            "spdx" in file_lower
+            "sbom" in file_lower
+            or "bom" in file_lower
+            or "cyclonedx" in file_lower
+            or "cdx" in file_lower
+            or "spdx" in file_lower
         )
 
     def detect_sbom_format(self, filename: str, repository_path: str) -> str | None:
@@ -211,9 +217,9 @@ class AnalyzerRegistry:
         Returns:
             dict[str, dict[str, dict | str]]: The updated requirement files dictionary.
         """
-        analyzer: RequirementFileAnalyzer | None = self.get_analyzer(filename, repository_path)
+        analyzer: RequirementFileAnalyzer | None = self.get_analyzer(
+            filename, repository_path
+        )
         if analyzer:
-            return run(
-                analyzer.analyze(requirement_files, repository_path, filename)
-            )
+            return run(analyzer.analyze(requirement_files, repository_path, filename))
         return requirement_files

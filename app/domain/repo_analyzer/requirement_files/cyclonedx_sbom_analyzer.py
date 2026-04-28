@@ -21,7 +21,9 @@ class CycloneDxSbomAnalyzer(RequirementFileAnalyzer):
         requirement_file_name = self.normalize_filename(requirement_file_name)
 
         try:
-            packages_with_manager = self.parse_file(repository_path, requirement_file_name)
+            packages_with_manager = self.parse_file(
+                repository_path, requirement_file_name
+            )
 
             if packages_with_manager:
                 requirement_files[requirement_file_name] = {
@@ -94,16 +96,24 @@ class CycloneDxSbomAnalyzer(RequirementFileAnalyzer):
                 continue
 
             if package_type == "maven":
-                package_id = f"{purl.namespace}:{purl.name}" if purl.namespace else purl.name
+                package_id = (
+                    f"{purl.namespace}:{purl.name}" if purl.namespace else purl.name
+                )
             elif package_type in ["npm", "cargo"]:
-                package_id = f"{purl.namespace}/{purl.name}" if purl.namespace else purl.name
+                package_id = (
+                    f"{purl.namespace}/{purl.name}" if purl.namespace else purl.name
+                )
             else:
                 package_id = purl.name
 
             if not package_id:
                 continue
 
-            version = self.normalize_version_for_type(purl.version, package_type) if purl.version else "any"
+            version = (
+                self.normalize_version_for_type(purl.version, package_type)
+                if purl.version
+                else "any"
+            )
 
             prefixed_key = f"{manager}:{package_id}"
             packages[prefixed_key] = version

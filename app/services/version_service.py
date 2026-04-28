@@ -19,14 +19,12 @@ class VersionService:
             query,
             package_name=package_name,
             version_name=version_name,
-            max_depth=max_depth
+            max_depth=max_depth,
         )
         return await result.single()
 
     async def read_releases_by_serial_numbers(
-        self,
-        node_type: str,
-        config: dict[str, int]
+        self, node_type: str, config: dict[str, int]
     ) -> dict[str, str]:
         # TODO: Add dynamic labels where Neo4j supports it with indexes
         query = f"""
@@ -38,7 +36,7 @@ class VersionService:
         items = [{"package": pkg, "serial_number": sn} for pkg, sn in config.items()]
 
         async with self.driver.session() as session:
-            result = await session.run(query, items=items) # type: ignore
+            result = await session.run(query, items=items)  # type: ignore
             records = await result.data()
 
         found = {record["package"]: record["name"] for record in records}
@@ -48,9 +46,7 @@ class VersionService:
         return sanitized_config if sanitized_config else {}
 
     async def read_serial_numbers_by_releases(
-        self,
-        node_type: str,
-        config: dict[str, str]
+        self, node_type: str, config: dict[str, str]
     ) -> dict[str, int]:
         # TODO: Add dynamic labels where Neo4j supports it with indexes
         query = f"""
@@ -62,18 +58,17 @@ class VersionService:
         items = [{"package": pkg, "release": rel} for pkg, rel in config.items()]
 
         async with self.driver.session() as session:
-            result = await session.run(query, items=items) # type: ignore
+            result = await session.run(query, items=items)  # type: ignore
             records = await result.data()
 
-        sanitized_config = {record["package"]: record["serial_number"] for record in records}
+        sanitized_config = {
+            record["package"]: record["serial_number"] for record in records
+        }
 
         return sanitized_config
 
     async def read_versions_expansion_by_package(
-        self,
-        node_type: str,
-        package_purl: str,
-        constraints: str | None = None
+        self, node_type: str, package_purl: str, constraints: str | None = None
     ) -> dict[str, Any] | None:
         # TODO: Add dynamic labels where Neo4j supports it with indexes
         query = f"""
@@ -87,7 +82,7 @@ class VersionService:
         }}) AS versions
         """
         async with self.driver.session() as session:
-            result = await session.run(query, package_purl=package_purl) # type: ignore
+            result = await session.run(query, package_purl=package_purl)  # type: ignore
             record = await result.single()
         if not record:
             return None
@@ -104,8 +99,8 @@ class VersionService:
                     "release_date": v["release_date"],
                     "serial_number": v["serial_number"],
                     "vulnerabilities": v["vulnerabilities"],
-                    "purl": v["purl"]
-                }
+                    "purl": v["purl"],
+                },
             }
             for v in versions
         ]
@@ -114,18 +109,14 @@ class VersionService:
                 "id": f"e-{package_purl}-{v['purl']}",
                 "source": package_purl,
                 "target": v["purl"],
-                "type": "HAVE"
+                "type": "HAVE",
             }
             for v in versions
         ]
         return {"nodes": nodes, "edges": edges}
 
     async def read_graph_for_version_ssc_info_operation(
-        self,
-        node_type: str,
-        package_name: str,
-        version_name: str,
-        max_depth: int
+        self, node_type: str, package_name: str, version_name: str, max_depth: int
     ) -> dict[str, Any]:
         # TODO: Add dynamic labels where Neo4j supports it with indexes
         query = f"""
@@ -198,14 +189,15 @@ class VersionService:
                     query,
                     package_name,
                     version_name,
-                    max_depth
+                    max_depth,
                 )
                 return record.get("ssc_version_info") if record else {}
         except Neo4jError as err:
             code = getattr(err, "code", "") or ""
             if (
                 code == "Neo.TransientError.General.MemoryPoolOutOfMemoryError"
-                or code == "Neo.ClientError.Transaction.TransactionTimedOutClientConfiguration"
+                or code
+                == "Neo.ClientError.Transaction.TransactionTimedOutClientConfiguration"
                 or code == "Neo.ClientError.Transaction.TransactionTimedOut"
             ):
                 raise MemoryOutException() from err
